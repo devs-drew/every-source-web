@@ -4,7 +4,7 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
     '@nuxt/ui',
     '@pinia/nuxt',
-    'shadcn-nuxt',
+    'shadcn-nuxt'
   ],
 
   devtools: {
@@ -12,11 +12,6 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-
-  shadcn: {
-    prefix: 'Shad',
-    componentDir: './components/ui',
-  },
 
   routeRules: {
     '/': { prerender: true }
@@ -31,5 +26,10 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+
+  shadcn: {
+    prefix: 'Shad',
+    componentDir: './components/ui'
   }
 })
