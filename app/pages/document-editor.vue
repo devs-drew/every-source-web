@@ -171,24 +171,96 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
         <!-- Toolbar -->
         <div class="toolbar">
-          <button id="tb-bold" name="tb-bold" class="tb-btn" :class="{ active: isBold }" @mousedown.prevent @click="run(e => e.chain().focus().toggleBold().run())">B</button>
-          <button id="tb-italic" name="tb-italic" class="tb-btn italic-btn" :class="{ active: isItalic }" @mousedown.prevent @click="run(e => e.chain().focus().toggleItalic().run())">I</button>
-          <button id="tb-underline" name="tb-underline" class="tb-btn underline-btn" :class="{ active: isUnderline }" @mousedown.prevent @click="run(e => e.chain().focus().toggleUnderline().run())">U</button>
+          <button
+            id="tb-bold"
+            name="tb-bold"
+            class="tb-btn"
+            :class="{ active: isBold }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleBold().run())"
+          >
+            B
+          </button>
+          <button
+            id="tb-italic"
+            name="tb-italic"
+            class="tb-btn italic-btn"
+            :class="{ active: isItalic }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleItalic().run())"
+          >
+            I
+          </button>
+          <button
+            id="tb-underline"
+            name="tb-underline"
+            class="tb-btn underline-btn"
+            :class="{ active: isUnderline }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleUnderline().run())"
+          >
+            U
+          </button>
           <div class="tb-divider" />
-          <button id="tb-h1" name="tb-h1" class="tb-btn" style="font-size:11px;font-weight:700" :class="{ active: isH1 }" @mousedown.prevent @click="run(e => e.chain().focus().toggleHeading({ level: 1 }).run())">H1</button>
-          <button id="tb-h2" name="tb-h2" class="tb-btn" style="font-size:11px;font-weight:700" :class="{ active: isH2 }" @mousedown.prevent @click="run(e => e.chain().focus().toggleHeading({ level: 2 }).run())">H2</button>
+          <button
+            id="tb-h1"
+            name="tb-h1"
+            class="tb-btn"
+            style="font-size:11px;font-weight:700"
+            :class="{ active: isH1 }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleHeading({ level: 1 }).run())"
+          >
+            H1
+          </button>
+          <button
+            id="tb-h2"
+            name="tb-h2"
+            class="tb-btn"
+            style="font-size:11px;font-weight:700"
+            :class="{ active: isH2 }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleHeading({ level: 2 }).run())"
+          >
+            H2
+          </button>
           <div class="tb-divider" />
-          <button id="tb-list" name="tb-list" class="tb-btn" :class="{ active: isList }" @mousedown.prevent @click="run(e => e.chain().focus().toggleBulletList().run())">≡</button>
-          <button id="tb-code" name="tb-code" class="tb-btn" style="font-size:11px;font-weight:600" :class="{ active: isCode }" @mousedown.prevent @click="run(e => e.chain().focus().toggleCodeBlock().run())">&lt;/&gt;</button>
+          <button
+            id="tb-list"
+            name="tb-list"
+            class="tb-btn"
+            :class="{ active: isList }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleBulletList().run())"
+          >
+            ≡
+          </button>
+          <button
+            id="tb-code"
+            name="tb-code"
+            class="tb-btn"
+            style="font-size:11px;font-weight:600"
+            :class="{ active: isCode }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleCodeBlock().run())"
+          >
+            &lt;/&gt;
+          </button>
           <div style="flex:1" />
           <span style="font-size:11px;color:var(--text-3)">Auto-saved · v5</span>
         </div>
 
         <!-- Content -->
         <ClientOnly>
-          <ShadTiptapEditor ref="editorRef" :content="initialContent" style="flex:1;overflow-y:auto" />
+          <ShadTiptapEditor
+            ref="editorRef"
+            :content="initialContent"
+            style="flex:1;overflow-y:auto"
+          />
           <template #fallback>
-            <div style="flex:1;overflow-y:auto;padding:40px;opacity:.4;font-size:14px">Loading editor…</div>
+            <div style="flex:1;overflow-y:auto;padding:40px;opacity:.4;font-size:14px">
+              Loading editor…
+            </div>
           </template>
         </ClientOnly>
       </div>

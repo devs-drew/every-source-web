@@ -229,7 +229,10 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
                 :class="{ 'doc-link--active': doc.id === docsStore.activeDocId }"
                 @click="docsStore.setActiveDoc(doc.id)"
               >
-                <span class="status-dot" :style="{ background: statusColor(doc.status) }" />
+                <span
+                  class="status-dot"
+                  :style="{ background: statusColor(doc.status) }"
+                />
                 {{ doc.title }}
               </button>
             </div>
@@ -317,13 +320,21 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
             <div>
-              <h1 style="font-size:30px;font-weight:700;letter-spacing:-.7px;margin-bottom:8px">{{ activeDoc?.title }}</h1>
+              <h1 style="font-size:30px;font-weight:700;letter-spacing:-.7px;margin-bottom:8px">
+                {{ activeDoc?.title }}
+              </h1>
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;text-transform:capitalize" :style="statusBadgeStyle">{{ activeDoc?.status }}</span>
+                <span
+                  style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;text-transform:capitalize"
+                  :style="statusBadgeStyle"
+                >{{ activeDoc?.status }}</span>
                 <span style="font-size:12px;color:var(--text-3)">{{ activeDoc?.author }} · {{ activeDoc?.updatedAt }} · v{{ activeDoc?.version }}</span>
               </div>
             </div>
-            <NuxtLink to="/document-editor" class="edit-btn">Edit</NuxtLink>
+            <NuxtLink
+              to="/document-editor"
+              class="edit-btn"
+            >Edit</NuxtLink>
           </div>
         </div>
       </main>

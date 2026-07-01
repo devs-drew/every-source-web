@@ -11,12 +11,12 @@ const props = defineProps<Props>()
 
 const editor = useEditor({
   content: props.content,
-  extensions: [StarterKit, Underline],
+  extensions: [StarterKit, Underline]
 })
 
 const state = reactive({
   bold: false, italic: false, underline: false,
-  h1: false, h2: false, list: false, code: false,
+  h1: false, h2: false, list: false, code: false
 })
 
 watch(editor, (ed) => {
@@ -36,7 +36,10 @@ defineExpose({ editor, state })
 </script>
 
 <template>
-  <EditorContent :editor="editor" class="editor-wrapper" />
+  <EditorContent
+    :editor="editor"
+    class="editor-wrapper"
+  />
 </template>
 
 <style scoped>
