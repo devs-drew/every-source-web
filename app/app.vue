@@ -1,5 +1,11 @@
 <script setup>
 useHead({
+  script: [
+    {
+      innerHTML: `(function(){var t=localStorage.getItem('es-theme')||'dark';document.documentElement.setAttribute('data-theme',t)})()`,
+      tagPriority: 'critical'
+    }
+  ],
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
