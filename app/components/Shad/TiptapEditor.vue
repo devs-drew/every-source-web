@@ -8,6 +8,10 @@ import Subscript from '@tiptap/extension-subscript'
 import TextAlign from '@tiptap/extension-text-align'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
 
 interface Props {
   content: string
@@ -25,14 +29,18 @@ const editor = useEditor({
     Subscript,
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     TaskList,
-    TaskItem.configure({ nested: true })
+    TaskItem.configure({ nested: true }),
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableCell,
+    TableHeader
   ]
 })
 
 const state = reactive({
   bold: false, italic: false, underline: false,
   h1: false, h2: false, h3: false, h4: false, paragraph: false, list: false, code: false,
-  strike: false, orderedList: false, taskList: false, blockquote: false,
+  strike: false, orderedList: false, taskList: false, blockquote: false, table: false,
   superscript: false, subscript: false,
   alignLeft: false, alignCenter: false, alignRight: false, alignJustify: false
 })
@@ -53,6 +61,7 @@ watch(editor, (ed) => {
     state.strike = ed.isActive('strike')
     state.orderedList = ed.isActive('orderedList')
     state.taskList = ed.isActive('taskList')
+    state.table = ed.isActive('table')
     state.blockquote = ed.isActive('blockquote')
     state.superscript = ed.isActive('superscript')
     state.subscript = ed.isActive('subscript')
@@ -93,4 +102,8 @@ defineExpose({ editor, state })
 .editor-wrapper :deep(ul[data-type="taskList"] li label) { margin-top: 2px; flex-shrink: 0; cursor: pointer; }
 .editor-wrapper :deep(ul[data-type="taskList"] li input[type="checkbox"]) { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
 .editor-wrapper :deep(ul[data-type="taskList"] li[data-checked="true"] > div) { text-decoration: line-through; color: var(--text-3); }
+.editor-wrapper :deep(.ProseMirror table) { border-collapse: collapse; width: 100%; margin-bottom: 14px; table-layout: fixed; }
+.editor-wrapper :deep(.ProseMirror th) { background: var(--bg); font-weight: 600; text-align: left; padding: 8px 12px; border: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.editor-wrapper :deep(.ProseMirror td) { padding: 8px 12px; border: 1px solid var(--border); font-size: 13px; color: var(--text-2); vertical-align: top; }
+.editor-wrapper :deep(.ProseMirror .selectedCell) { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 </style>

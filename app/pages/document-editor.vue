@@ -41,6 +41,7 @@ interface EditorState {
   alignCenter: boolean
   alignRight: boolean
   alignJustify: boolean
+  table: boolean
 }
 
 const editorRef = useTemplateRef<{ editor: Editor | undefined, state: EditorState }>('editorRef')
@@ -85,6 +86,9 @@ function run(action: (e: Editor) => void) {
   const e = editorRef.value?.editor
   if (e) action(e)
 }
+
+const tableOpen = ref(false)
+const isTable = computed(() => editorRef.value?.state.table ?? false)
 
 const saveOpen = ref(false)
 const saveConfirmed = ref(false)
@@ -589,6 +593,140 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
           </button>
+          <div class="tb-divider" />
+          <!-- Table -->
+          <div style="position:relative">
+            <button
+              id="tb-table"
+              name="tb-table"
+              class="tb-btn"
+              title="Table"
+              style="display:flex;align-items:center;gap:4px;padding:4px 6px"
+              :class="{ active: isTable }"
+              @mousedown.prevent
+              @click="tableOpen = !tableOpen"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><rect
+                x="3"
+                y="3"
+                width="18"
+                height="18"
+                rx="2"
+              /><line
+                x1="3"
+                y1="9"
+                x2="21"
+                y2="9"
+              /><line
+                x1="3"
+                y1="15"
+                x2="21"
+                y2="15"
+              /><line
+                x1="9"
+                y1="3"
+                x2="9"
+                y2="21"
+              /><line
+                x1="15"
+                y1="3"
+                x2="15"
+                y2="21"
+              /></svg>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            <div
+              v-if="tableOpen"
+              class="heading-dropdown"
+              style="min-width:180px"
+            >
+              <button
+                v-if="!isTable"
+                class="heading-option"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()); tableOpen = false"
+              >
+                <span class="hd-label">+</span>
+                Insert table
+              </button>
+              <template v-else>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().addRowBefore().run()); tableOpen = false"
+                >
+                  <span class="hd-label">↑</span>
+                  Add row above
+                </button>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().addRowAfter().run()); tableOpen = false"
+                >
+                  <span class="hd-label">↓</span>
+                  Add row below
+                </button>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().deleteRow().run()); tableOpen = false"
+                >
+                  <span class="hd-label">—</span>
+                  Delete row
+                </button>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().addColumnBefore().run()); tableOpen = false"
+                >
+                  <span class="hd-label">←</span>
+                  Add col before
+                </button>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().addColumnAfter().run()); tableOpen = false"
+                >
+                  <span class="hd-label">→</span>
+                  Add col after
+                </button>
+                <button
+                  class="heading-option"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().deleteColumn().run()); tableOpen = false"
+                >
+                  <span class="hd-label">—</span>
+                  Delete column
+                </button>
+                <button
+                  class="heading-option"
+                  style="color:#ef4444"
+                  @mousedown.prevent
+                  @click="run(e => e.chain().focus().deleteTable().run()); tableOpen = false"
+                >
+                  <span
+                    class="hd-label"
+                    style="color:#ef4444"
+                  >✕</span>
+                  Delete table
+                </button>
+              </template>
+            </div>
+          </div>
           <div style="flex:1" />
           <button
             id="tb-save"
