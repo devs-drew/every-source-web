@@ -20,19 +20,89 @@ const statusMap = {
 
 const currentStatus = computed(() => statusMap[docsStore.activeStatus] || statusMap.draft)
 
-const editorRef = useTemplateRef<{ editor: Editor | undefined, state: { bold: boolean, italic: boolean, underline: boolean, h1: boolean, h2: boolean, list: boolean, code: boolean } }>('editorRef')
+interface EditorState {
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  h1: boolean
+  h2: boolean
+  h3: boolean
+  h4: boolean
+  paragraph: boolean
+  list: boolean
+  code: boolean
+  strike: boolean
+  orderedList: boolean
+  taskList: boolean
+  blockquote: boolean
+  superscript: boolean
+  subscript: boolean
+  alignLeft: boolean
+  alignCenter: boolean
+  alignRight: boolean
+  alignJustify: boolean
+}
+
+const editorRef = useTemplateRef<{ editor: Editor | undefined, state: EditorState }>('editorRef')
 
 const isBold = computed(() => editorRef.value?.state.bold ?? false)
 const isItalic = computed(() => editorRef.value?.state.italic ?? false)
 const isUnderline = computed(() => editorRef.value?.state.underline ?? false)
 const isH1 = computed(() => editorRef.value?.state.h1 ?? false)
 const isH2 = computed(() => editorRef.value?.state.h2 ?? false)
+const isH3 = computed(() => editorRef.value?.state.h3 ?? false)
+const isH4 = computed(() => editorRef.value?.state.h4 ?? false)
+
+const headingOpen = ref(false)
+const listOpen = ref(false)
+const listLabel = computed(() => {
+  if (isList.value) return 'bullet'
+  if (isOrderedList.value) return 'ordered'
+  if (isTaskList.value) return 'task'
+  return 'none'
+})
+const headingLabel = computed(() => {
+  if (isH1.value) return 'H1'
+  if (isH2.value) return 'H2'
+  if (isH3.value) return 'H3'
+  if (isH4.value) return 'H4'
+  return 'P'
+})
 const isList = computed(() => editorRef.value?.state.list ?? false)
 const isCode = computed(() => editorRef.value?.state.code ?? false)
+const isStrike = computed(() => editorRef.value?.state.strike ?? false)
+const isOrderedList = computed(() => editorRef.value?.state.orderedList ?? false)
+const isTaskList = computed(() => editorRef.value?.state.taskList ?? false)
+const isBlockquote = computed(() => editorRef.value?.state.blockquote ?? false)
+const isSuperscript = computed(() => editorRef.value?.state.superscript ?? false)
+const isSubscript = computed(() => editorRef.value?.state.subscript ?? false)
+const isAlignLeft = computed(() => editorRef.value?.state.alignLeft ?? false)
+const isAlignCenter = computed(() => editorRef.value?.state.alignCenter ?? false)
+const isAlignRight = computed(() => editorRef.value?.state.alignRight ?? false)
+const isAlignJustify = computed(() => editorRef.value?.state.alignJustify ?? false)
 
 function run(action: (e: Editor) => void) {
   const e = editorRef.value?.editor
   if (e) action(e)
+}
+
+const saveOpen = ref(false)
+const saveConfirmed = ref(false)
+
+function handleSaveConfirm() {
+  saveConfirmed.value = true
+  saveOpen.value = false
+  setTimeout(() => {
+    saveConfirmed.value = false
+  }, 2000)
+}
+
+function handleSetLink() {
+  const e = editorRef.value?.editor
+  if (!e) return
+  const url = prompt('URL')
+  if (url) e.chain().focus().setLink({ href: url }).run()
+  else e.chain().focus().unsetLink().run()
 }
 
 const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The DevVault API uses token-based authentication via Laravel Sanctum. All authenticated endpoints require a valid Bearer token in the <code>Authorization</code> header.</p><h2>Obtaining a Token</h2><p>POST to <code>/api/login</code> with credentials to receive a token.</p><pre><code>POST /api/login\n{"email": "user@acme.com", "password": "..."}</code></pre>`
@@ -171,10 +241,223 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
       <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
         <!-- Toolbar -->
         <div class="toolbar">
+          <!-- History -->
+          <button
+            id="tb-undo"
+            name="tb-undo"
+            class="tb-btn"
+            title="Undo"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().undo().run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6" /><path d="M3 13C5.5 7 11 4 17 5.5a9 9 0 0 1 5 9" /></svg>
+          </button>
+          <button
+            id="tb-redo"
+            name="tb-redo"
+            class="tb-btn"
+            title="Redo"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().redo().run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6" /><path d="M21 13C18.5 7 13 4 7 5.5a9 9 0 0 0-5 9" /></svg>
+          </button>
+          <div class="tb-divider" />
+          <!-- Heading dropdown -->
+          <div style="position:relative">
+            <button
+              id="tb-heading"
+              name="tb-heading"
+              class="tb-btn"
+              style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 6px"
+              @mousedown.prevent
+              @click="headingOpen = !headingOpen"
+            >
+              {{ headingLabel }}
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            <div
+              v-if="headingOpen"
+              class="heading-dropdown"
+            >
+              <button
+                class="heading-option"
+                :class="{ active: headingLabel === 'P' }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().setParagraph().run()); headingOpen = false"
+              >
+                <span class="hd-label">P</span>
+                Paragraph
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: isH1 }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().setHeading({ level: 1 }).run()); headingOpen = false"
+              >
+                <span class="hd-label">H1</span>
+                Heading 1
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: isH2 }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().setHeading({ level: 2 }).run()); headingOpen = false"
+              >
+                <span class="hd-label">H2</span>
+                Heading 2
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: isH3 }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().setHeading({ level: 3 }).run()); headingOpen = false"
+              >
+                <span class="hd-label">H3</span>
+                Heading 3
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: isH4 }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().setHeading({ level: 4 }).run()); headingOpen = false"
+              >
+                <span class="hd-label">H4</span>
+                Heading 4
+              </button>
+            </div>
+          </div>
+          <div class="tb-divider" />
+          <!-- List dropdown -->
+          <div style="position:relative">
+            <button
+              id="tb-list"
+              name="tb-list"
+              class="tb-btn"
+              style="display:flex;align-items:center;gap:4px;padding:4px 6px"
+              :class="{ active: listLabel !== 'none' }"
+              @mousedown.prevent
+              @click="listOpen = !listOpen"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line
+                  x1="9"
+                  y1="6"
+                  x2="20"
+                  y2="6"
+                /><line
+                  x1="9"
+                  y1="12"
+                  x2="20"
+                  y2="12"
+                /><line
+                  x1="9"
+                  y1="18"
+                  x2="20"
+                  y2="18"
+                /><circle
+                  cx="4"
+                  cy="6"
+                  r="1.5"
+                  fill="currentColor"
+                  stroke="none"
+                /><circle
+                  cx="4"
+                  cy="12"
+                  r="1.5"
+                  fill="currentColor"
+                  stroke="none"
+                /><circle
+                  cx="4"
+                  cy="18"
+                  r="1.5"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              ><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            <div
+              v-if="listOpen"
+              class="heading-dropdown"
+            >
+              <button
+                class="heading-option"
+                :class="{ active: listLabel === 'none' }"
+                @mousedown.prevent
+                @click="run(e => { if (isList) e.chain().focus().toggleBulletList().run(); else if (isOrderedList) e.chain().focus().toggleOrderedList().run(); else if (isTaskList) e.chain().focus().toggleTaskList().run() }); listOpen = false"
+              >
+                <span class="hd-label">—</span>
+                No list
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: listLabel === 'bullet' }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().toggleBulletList().run()); listOpen = false"
+              >
+                <span class="hd-label">•</span>
+                Bullet list
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: listLabel === 'ordered' }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().toggleOrderedList().run()); listOpen = false"
+              >
+                <span class="hd-label">1.</span>
+                Ordered list
+              </button>
+              <button
+                class="heading-option"
+                :class="{ active: listLabel === 'task' }"
+                @mousedown.prevent
+                @click="run(e => e.chain().focus().toggleTaskList().run()); listOpen = false"
+              >
+                <span class="hd-label">☑</span>
+                Task list
+              </button>
+            </div>
+          </div>
+          <button
+            id="tb-blockquote"
+            name="tb-blockquote"
+            class="tb-btn"
+            title="Blockquote"
+            :class="{ active: isBlockquote }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleBlockquote().run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" /><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" /></svg>
+          </button>
+          <div class="tb-divider" />
+          <!-- Inline formatting -->
           <button
             id="tb-bold"
             name="tb-bold"
             class="tb-btn"
+            title="Bold"
             :class="{ active: isBold }"
             @mousedown.prevent
             @click="run(e => e.chain().focus().toggleBold().run())"
@@ -185,6 +468,7 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             id="tb-italic"
             name="tb-italic"
             class="tb-btn italic-btn"
+            title="Italic"
             :class="{ active: isItalic }"
             @mousedown.prevent
             @click="run(e => e.chain().focus().toggleItalic().run())"
@@ -192,53 +476,21 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             I
           </button>
           <button
-            id="tb-underline"
-            name="tb-underline"
-            class="tb-btn underline-btn"
-            :class="{ active: isUnderline }"
+            id="tb-strike"
+            name="tb-strike"
+            class="tb-btn strike-btn"
+            title="Strikethrough"
+            :class="{ active: isStrike }"
             @mousedown.prevent
-            @click="run(e => e.chain().focus().toggleUnderline().run())"
+            @click="run(e => e.chain().focus().toggleStrike().run())"
           >
-            U
-          </button>
-          <div class="tb-divider" />
-          <button
-            id="tb-h1"
-            name="tb-h1"
-            class="tb-btn"
-            style="font-size:11px;font-weight:700"
-            :class="{ active: isH1 }"
-            @mousedown.prevent
-            @click="run(e => e.chain().focus().toggleHeading({ level: 1 }).run())"
-          >
-            H1
-          </button>
-          <button
-            id="tb-h2"
-            name="tb-h2"
-            class="tb-btn"
-            style="font-size:11px;font-weight:700"
-            :class="{ active: isH2 }"
-            @mousedown.prevent
-            @click="run(e => e.chain().focus().toggleHeading({ level: 2 }).run())"
-          >
-            H2
-          </button>
-          <div class="tb-divider" />
-          <button
-            id="tb-list"
-            name="tb-list"
-            class="tb-btn"
-            :class="{ active: isList }"
-            @mousedown.prevent
-            @click="run(e => e.chain().focus().toggleBulletList().run())"
-          >
-            ≡
+            S
           </button>
           <button
             id="tb-code"
             name="tb-code"
             class="tb-btn"
+            title="Code block"
             style="font-size:11px;font-weight:600"
             :class="{ active: isCode }"
             @mousedown.prevent
@@ -246,8 +498,115 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
           >
             &lt;/&gt;
           </button>
+          <button
+            id="tb-underline"
+            name="tb-underline"
+            class="tb-btn underline-btn"
+            title="Underline"
+            :class="{ active: isUnderline }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleUnderline().run())"
+          >
+            U
+          </button>
+          <button
+            id="tb-link"
+            name="tb-link"
+            class="tb-btn"
+            title="Link"
+            @mousedown.prevent
+            @click="handleSetLink"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+          </button>
+          <div class="tb-divider" />
+          <!-- Super / Sub script -->
+          <button
+            id="tb-superscript"
+            name="tb-superscript"
+            class="tb-btn"
+            title="Superscript"
+            :class="{ active: isSuperscript }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleSuperscript().run())"
+          >
+            x<sup style="font-size:8px">2</sup>
+          </button>
+          <button
+            id="tb-subscript"
+            name="tb-subscript"
+            class="tb-btn"
+            title="Subscript"
+            :class="{ active: isSubscript }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().toggleSubscript().run())"
+          >
+            x<sub style="font-size:8px">2</sub>
+          </button>
+          <div class="tb-divider" />
+          <!-- Alignment -->
+          <button
+            id="tb-align-left"
+            name="tb-align-left"
+            class="tb-btn"
+            title="Align left"
+            :class="{ active: isAlignLeft }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().setTextAlign('left').run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" /></svg>
+          </button>
+          <button
+            id="tb-align-center"
+            name="tb-align-center"
+            class="tb-btn"
+            title="Align center"
+            :class="{ active: isAlignCenter }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().setTextAlign('center').run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="4" y1="18" x2="20" y2="18" /></svg>
+          </button>
+          <button
+            id="tb-align-right"
+            name="tb-align-right"
+            class="tb-btn"
+            title="Align right"
+            :class="{ active: isAlignRight }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().setTextAlign('right').run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="9" y1="12" x2="21" y2="12" /><line x1="6" y1="18" x2="21" y2="18" /></svg>
+          </button>
+          <button
+            id="tb-align-justify"
+            name="tb-align-justify"
+            class="tb-btn"
+            title="Justify"
+            :class="{ active: isAlignJustify }"
+            @mousedown.prevent
+            @click="run(e => e.chain().focus().setTextAlign('justify').run())"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+          </button>
           <div style="flex:1" />
-          <span style="font-size:11px;color:var(--text-3)">Auto-saved · v5</span>
+          <button
+            id="tb-save"
+            name="tb-save"
+            class="save-btn"
+            :class="{ saved: saveConfirmed }"
+            @click="saveOpen = true"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+            {{ saveConfirmed ? 'Saved!' : 'Save Document' }}
+          </button>
         </div>
 
         <!-- Content -->
@@ -487,6 +846,52 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
         </div>
       </div>
     </Teleport>
+
+    <!-- Save confirmation modal -->
+    <Teleport to="body">
+      <div
+        v-if="saveOpen"
+        class="overlay"
+        @click="saveOpen = false"
+      >
+        <div
+          class="modal-box"
+          style="width:380px"
+          @click.stop
+        >
+          <div class="modal-header">
+            <div>
+              <h2 style="font-size:15px;font-weight:700">
+                Save document?
+              </h2>
+              <p style="font-size:12px;color:var(--text-3);margin-top:2px">
+                This will save the current version as v5.
+              </p>
+            </div>
+            <button
+              class="modal-close"
+              @click="saveOpen = false"
+            >
+              ✕
+            </button>
+          </div>
+          <div style="padding:20px 22px;display:flex;justify-content:flex-end;gap:8px">
+            <button
+              class="hdr-btn"
+              @click="saveOpen = false"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn-primary-sm"
+              @click="handleSaveConfirm"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -559,6 +964,7 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
 .tb-btn.active { background: var(--accent); color: var(--accent-fg); }
 .italic-btn { font-style: italic; }
 .underline-btn { text-decoration: underline; }
+.strike-btn { text-decoration: line-through; }
 .tb-divider { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 
 .meta-panel {
@@ -639,4 +1045,27 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
   width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--bg); color: var(--text); font-family: inherit; font-size: 13px; outline: none; cursor: pointer;
 }
+
+.save-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: transparent; font-family: inherit; font-size: 11px; font-weight: 500;
+  cursor: pointer; color: var(--text-2);
+}
+.save-btn:hover { border-color: var(--text-3); }
+.save-btn.saved { border-color: var(--accent); color: var(--accent); }
+
+.heading-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+  min-width: 160px; box-shadow: var(--shadow-md); z-index: 10; padding: 4px 0;
+}
+.heading-option {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border: none; background: transparent;
+  cursor: pointer; font-family: inherit; font-size: 13px; color: var(--text); text-align: left;
+}
+.heading-option:hover { background: var(--bg); }
+.heading-option.active { background: var(--bg); color: var(--accent); font-weight: 600; }
+.hd-label { font-size: 11px; font-weight: 700; color: var(--text-3); width: 20px; }
 </style>

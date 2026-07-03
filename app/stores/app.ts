@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
-    dark: false,
+    dark: true,
     searchOpen: false,
     categoryModalOpen: false,
     shareOpen: false,
@@ -15,7 +15,7 @@ export const useAppStore = defineStore('app', {
   actions: {
     initTheme() {
       if (import.meta.client) {
-        const saved = localStorage.getItem('es-theme') || 'light'
+        const saved = localStorage.getItem('es-theme') || 'dark'
         document.documentElement.setAttribute('data-theme', saved)
         this.dark = saved === 'dark'
       }
