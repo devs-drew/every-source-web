@@ -23,6 +23,8 @@ const docCount = computed(() => activeProject.value ? docsStore.docsForProject(a
 const memberCount = computed(() => activeProject.value ? projectsStore.projectMembers(activeProject.value.id).length : 0)
 
 const newCategoryName = ref('')
+const newDocName = ref('')
+const pendingCatId = ref('')
 
 onMounted(() => appStore.initTheme())
 
@@ -34,8 +36,26 @@ function createCategory() {
 }
 
 function addDoc(categoryId: string) {
-  docsStore.createDoc(categoryId, 'Untitled Document')
+  pendingCatId.value = categoryId
+  newDocName.value = ''
+  appStore.openDocModal()
+}
+
+function createDocConfirm() {
+  if (!pendingCatId.value || !newDocName.value.trim()) return
+  docsStore.createDoc(pendingCatId.value, newDocName.value)
+  appStore.closeDocModal()
   navigateTo('/document-editor')
+}
+
+function createDocFromEmpty() {
+  const cat = categories.value[0]
+  // ponytail: default to first category; guide to create one when none exist
+  if (!cat) {
+    appStore.openCategoryModal()
+    return
+  }
+  addDoc(cat.id)
 }
 
 const statusColor = (status: string) =>
@@ -104,7 +124,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
       </NuxtLink>
       <div class="hdr-divider" />
       <NuxtLink
-        to="/projects"
+        to="/"
         class="breadcrumb-link"
       >Projects</NuxtLink>
       <svg
@@ -284,6 +304,19 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
             </div>
           </ClientOnly>
 
+          <button
+            v-if="can('create')"
+            id="new-category-inline"
+            name="new-category-inline"
+            type="button"
+            class="cat-btn"
+            style="color:var(--text-3)"
+            @click="appStore.openCategoryModal()"
+          >
+            <span style="font-size:11px;width:12px;text-align:center">+</span>
+            <span style="flex:1;text-align:left">New category</span>
+          </button>
+
           <div
             class="section-label"
             style="margin-top:12px"
@@ -366,28 +399,83 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
       <!-- Main -->
       <main style="flex:1;overflow-y:auto;padding:40px;background:var(--surface)">
         <div style="max-width:680px;margin:0 auto">
-          <div style="font-size:11px;color:var(--text-3);margin-bottom:16px">
-            {{ activeCategory?.name }} › {{ activeDoc?.title }}
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <div>
-              <h1 style="font-size:30px;font-weight:700;letter-spacing:-.7px;margin-bottom:8px">
-                {{ activeDoc?.title }}
-              </h1>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span
-                  style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;text-transform:capitalize"
-                  :style="statusBadgeStyle"
-                >{{ activeDoc?.status }}</span>
-                <span style="font-size:12px;color:var(--text-3)">{{ activeDoc?.author }} · {{ activeDoc?.updatedAt }} · v{{ activeDoc?.version }}</span>
-              </div>
+          <template v-if="activeDoc">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:16px">
+              {{ activeCategory?.name }} › {{ activeDoc?.title }}
             </div>
-            <NuxtLink
-              v-if="can('update', activeDoc?.id)"
-              to="/document-editor"
-              class="edit-btn"
-            >Edit</NuxtLink>
-          </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div>
+                <h1 style="font-size:30px;font-weight:700;letter-spacing:-.7px;margin-bottom:8px">
+                  {{ activeDoc?.title }}
+                </h1>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span
+                    style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;text-transform:capitalize"
+                    :style="statusBadgeStyle"
+                  >{{ activeDoc?.status }}</span>
+                  <span style="font-size:12px;color:var(--text-3)">{{ activeDoc?.author }} · {{ activeDoc?.updatedAt }} · v{{ activeDoc?.version }}</span>
+                </div>
+              </div>
+              <NuxtLink
+                v-if="can('update', activeDoc?.id)"
+                to="/document-editor"
+                class="edit-btn"
+              >Edit</NuxtLink>
+            </div>
+          </template>
+
+          <!-- Empty state: no document selected/created -->
+          <ClientOnly>
+            <div
+              v-if="!activeDoc"
+              style="text-align:center;padding:72px 24px;display:flex;flex-direction:column;align-items:center;gap:12px"
+            >
+              <div style="width:48px;height:48px;border-radius:12px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-3)">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                ><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+              </div>
+              <h2 style="font-size:18px;font-weight:700">
+                You have no documents yet
+              </h2>
+              <p style="font-size:13px;color:var(--text-2);max-width:360px;line-height:1.5">
+                Create your first document to start writing. It’ll show up in the sidebar under its category.
+              </p>
+              <button
+                v-if="can('create')"
+                id="create-doc-now"
+                name="create-doc-now"
+                type="button"
+                style="display:flex;align-items:center;gap:7px;margin-top:4px;padding:9px 16px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"
+                @click="createDocFromEmpty()"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                ><line
+                  x1="12"
+                  y1="5"
+                  x2="12"
+                  y2="19"
+                /><line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"
+                /></svg>
+                Create document now
+              </button>
+            </div>
+          </ClientOnly>
         </div>
       </main>
     </div>
@@ -526,6 +614,62 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
                 @click="createCategory"
               >
                 Create category
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- New document modal -->
+    <Teleport to="body">
+      <div
+        v-if="appStore.docModalOpen"
+        class="overlay"
+        @click="appStore.closeDocModal()"
+      >
+        <div
+          class="modal-box"
+          @click.stop
+        >
+          <div class="modal-header">
+            <h2 style="font-size:15px;font-weight:700">
+              New document
+            </h2>
+            <button
+              class="modal-close"
+              @click="appStore.closeDocModal()"
+            >
+              ✕
+            </button>
+          </div>
+          <div style="padding:22px;display:flex;flex-direction:column;gap:14px">
+            <div>
+              <label class="field-label">Document name</label>
+              <input
+                id="new-doc-name"
+                v-model="newDocName"
+                name="new-doc-name"
+                type="text"
+                placeholder="e.g. Authentication Guide"
+                class="text-input"
+                @keyup.enter="createDocConfirm"
+              >
+            </div>
+            <div style="display:flex;gap:8px">
+              <button
+                class="btn-cancel"
+                @click="appStore.closeDocModal()"
+              >
+                Cancel
+              </button>
+              <button
+                id="create-doc-submit"
+                name="create-doc-submit"
+                class="btn-primary"
+                @click="createDocConfirm"
+              >
+                Create document
               </button>
             </div>
           </div>
