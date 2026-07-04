@@ -108,8 +108,6 @@ function handleSetLink() {
   if (url) e.chain().focus().setLink({ href: url }).run()
   else e.chain().focus().unsetLink().run()
 }
-
-const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The DevVault API uses token-based authentication via Laravel Sanctum. All authenticated endpoints require a valid Bearer token in the <code>Authorization</code> header.</p><h2>Obtaining a Token</h2><p>POST to <code>/api/login</code> with credentials to receive a token.</p><pre><code>POST /api/login\n{"email": "user@acme.com", "password": "..."}</code></pre>`
 </script>
 
 <template>
@@ -254,7 +252,14 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().undo().run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6" /><path d="M3 13C5.5 7 11 4 17 5.5a9 9 0 0 1 5 9" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><path d="M3 7v6h6" /><path d="M3 13C5.5 7 11 4 17 5.5a9 9 0 0 1 5 9" /></svg>
           </button>
           <button
             id="tb-redo"
@@ -264,7 +269,14 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().redo().run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6" /><path d="M21 13C18.5 7 13 4 7 5.5a9 9 0 0 0-5 9" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><path d="M21 7v6h-6" /><path d="M21 13C18.5 7 13 4 7 5.5a9 9 0 0 0-5 9" /></svg>
           </button>
           <div class="tb-divider" />
           <!-- Heading dropdown -->
@@ -453,7 +465,14 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().toggleBlockquote().run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" /><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" /><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" /></svg>
           </button>
           <div class="tb-divider" />
           <!-- Inline formatting -->
@@ -521,7 +540,14 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="handleSetLink"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
           </button>
           <div class="tb-divider" />
           <!-- Super / Sub script -->
@@ -558,7 +584,29 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().setTextAlign('left').run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><line
+              x1="3"
+              y1="6"
+              x2="21"
+              y2="6"
+            /><line
+              x1="3"
+              y1="12"
+              x2="15"
+              y2="12"
+            /><line
+              x1="3"
+              y1="18"
+              x2="18"
+              y2="18"
+            /></svg>
           </button>
           <button
             id="tb-align-center"
@@ -569,7 +617,29 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().setTextAlign('center').run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="4" y1="18" x2="20" y2="18" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><line
+              x1="3"
+              y1="6"
+              x2="21"
+              y2="6"
+            /><line
+              x1="6"
+              y1="12"
+              x2="18"
+              y2="12"
+            /><line
+              x1="4"
+              y1="18"
+              x2="20"
+              y2="18"
+            /></svg>
           </button>
           <button
             id="tb-align-right"
@@ -580,7 +650,29 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().setTextAlign('right').run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="9" y1="12" x2="21" y2="12" /><line x1="6" y1="18" x2="21" y2="18" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><line
+              x1="3"
+              y1="6"
+              x2="21"
+              y2="6"
+            /><line
+              x1="9"
+              y1="12"
+              x2="21"
+              y2="12"
+            /><line
+              x1="6"
+              y1="18"
+              x2="21"
+              y2="18"
+            /></svg>
           </button>
           <button
             id="tb-align-justify"
@@ -591,7 +683,29 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
             @mousedown.prevent
             @click="run(e => e.chain().focus().setTextAlign('justify').run())"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            ><line
+              x1="3"
+              y1="6"
+              x2="21"
+              y2="6"
+            /><line
+              x1="3"
+              y1="12"
+              x2="21"
+              y2="12"
+            /><line
+              x1="3"
+              y1="18"
+              x2="21"
+              y2="18"
+            /></svg>
           </button>
           <div class="tb-divider" />
           <!-- Table -->
@@ -751,7 +865,7 @@ const initialContent = `<h1>Authentication Guide</h1><h2>Overview</h2><p>The Dev
         <ClientOnly>
           <ShadTiptapEditor
             ref="editorRef"
-            :content="initialContent"
+            :content="docsStore.activeContent"
             style="flex:1;overflow-y:auto"
           />
           <template #fallback>
