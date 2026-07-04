@@ -15,11 +15,14 @@ import { TableHeader } from '@tiptap/extension-table-header'
 
 interface Props {
   content: string
+  readonly?: boolean
 }
 
 const props = defineProps<Props>()
 
 const editor = useEditor({
+  // ponytail: editable is initial-value only; add setEditable watcher if dynamic toggling is needed
+  editable: !props.readonly,
   content: props.content,
   extensions: [
     StarterKit,
