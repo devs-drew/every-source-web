@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
 import { useDocumentsStore } from '~/stores/documents'
 import { storeToRefs } from 'pinia'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const docsStore = useDocumentsStore()
-const { versions, currentVersion } = storeToRefs(docsStore)
+const { can } = usePermissions()
+const { currentUser } = storeToRefs(authStore)
+const { activeDoc, activeVersions, currentVersion } = storeToRefs(docsStore)
+const canRestore = computed(() => can('update', activeDoc.value?.id))
 
 const restoreModalOpen = ref(false)
 const restoreTargetV = ref<number | null>(null)
@@ -40,7 +45,7 @@ function handleRestore() {
           stroke="currentColor"
           stroke-width="2"
         ><path d="m15 18-6-6 6-6" /></svg>
-        Authentication Guide
+        {{ activeDoc?.title }}
       </NuxtLink>
       <svg
         width="12"
@@ -59,9 +64,11 @@ function handleRestore() {
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
-        DF
-      </div>
+      <ClientOnly>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Timeline -->
@@ -72,70 +79,72 @@ function handleRestore() {
             Version History
           </h1>
           <p style="font-size:13px;color:var(--text-2)">
-            Authentication Guide · {{ versions.length }} versions · All changes are saved automatically
+            {{ activeDoc?.title }} · {{ activeVersions.length }} versions · All changes are saved automatically
           </p>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:0">
-          <div
-            v-for="(ver, idx) in versions"
-            :key="ver.v"
-            style="display:flex;gap:16px"
-            :style="`padding-bottom:${idx < versions.length - 1 ? '24px' : '0'};position:relative`"
-          >
-            <!-- Timeline dot + connector -->
-            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
-              <div :style="`width:10px;height:10px;border-radius:50%;background:${ver.current ? 'var(--accent)' : 'var(--border-2)'};border:2px solid ${ver.current ? 'var(--accent)' : 'var(--border)'};margin-top:3px`" />
-              <div
-                v-if="idx < versions.length - 1"
-                style="width:1px;flex:1;background:var(--border);margin-top:4px"
-              />
-            </div>
-            <!-- Version card -->
-            <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow)">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:700">Version {{ ver.v }}</span>
-                  <span
-                    v-if="ver.current"
-                    style="font-size:11px;font-weight:600;padding:2px 7px;background:#dcfce7;color:#15803d;border-radius:99px"
-                  >Current</span>
-                  <span
-                    v-if="ver.original"
-                    style="font-size:11px;font-weight:600;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--text-3)"
-                  >Original</span>
-                </div>
-                <span style="font-size:12px;color:var(--text-3)">{{ ver.time }}</span>
+        <ClientOnly>
+          <div style="display:flex;flex-direction:column;gap:0">
+            <div
+              v-for="(ver, idx) in activeVersions"
+              :key="ver.v"
+              style="display:flex;gap:16px"
+              :style="`padding-bottom:${idx < activeVersions.length - 1 ? '24px' : '0'};position:relative`"
+            >
+              <!-- Timeline dot + connector -->
+              <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+                <div :style="`width:10px;height:10px;border-radius:50%;background:${ver.current ? 'var(--accent)' : 'var(--border-2)'};border:2px solid ${ver.current ? 'var(--accent)' : 'var(--border)'};margin-top:3px`" />
+                <div
+                  v-if="idx < activeVersions.length - 1"
+                  style="width:1px;flex:1;background:var(--border);margin-top:4px"
+                />
               </div>
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-                <div :style="`width:20px;height:20px;border-radius:50%;background:${ver.color};color:${ver.fg};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700`">
-                  {{ ver.initials }}
+              <!-- Version card -->
+              <div style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:13px;font-weight:700">Version {{ ver.v }}</span>
+                    <span
+                      v-if="ver.current"
+                      style="font-size:11px;font-weight:600;padding:2px 7px;background:#dcfce7;color:#15803d;border-radius:99px"
+                    >Current</span>
+                    <span
+                      v-if="ver.original"
+                      style="font-size:11px;font-weight:600;padding:2px 7px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--text-3)"
+                    >Original</span>
+                  </div>
+                  <span style="font-size:12px;color:var(--text-3)">{{ ver.time }}</span>
                 </div>
-                <span style="font-size:12px;color:var(--text-2)">{{ ver.name }}</span>
-                <span style="font-size:12px;color:var(--text-3)">· {{ ver.note }}</span>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button
-                  style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:12px;cursor:pointer;color:var(--text-2)"
-                  @click="navigateTo('/snapshot-viewer?v=' + ver.v)"
-                >
-                  View snapshot
-                </button>
-                <template v-if="ver.current">
-                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center">This is the current version</span>
-                </template>
-                <template v-else>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+                  <div :style="`width:20px;height:20px;border-radius:50%;background:${ver.color};color:${ver.fg};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700`">
+                    {{ ver.initials }}
+                  </div>
+                  <span style="font-size:12px;color:var(--text-2)">{{ ver.name }}</span>
+                  <span style="font-size:12px;color:var(--text-3)">· {{ ver.note }}</span>
+                </div>
+                <div style="display:flex;gap:8px">
                   <button
-                    style="padding:6px 12px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer"
-                    @click="restoreTargetV = ver.v; restoreModalOpen = true"
+                    style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:12px;cursor:pointer;color:var(--text-2)"
+                    @click="navigateTo('/snapshot-viewer?v=' + ver.v)"
                   >
-                    Restore this version
+                    View snapshot
                   </button>
-                </template>
+                  <template v-if="ver.current">
+                    <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center">This is the current version</span>
+                  </template>
+                  <template v-else-if="canRestore">
+                    <button
+                      style="padding:6px 12px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer"
+                      @click="restoreTargetV = ver.v; restoreModalOpen = true"
+                    >
+                      Restore this version
+                    </button>
+                  </template>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ClientOnly>
       </div>
     </div>
 

@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/vue-3'
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
+import { useProjectsStore } from '~/stores/projects'
 import { useDocumentsStore } from '~/stores/documents'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const projectsStore = useProjectsStore()
 const docsStore = useDocumentsStore()
+const { can } = usePermissions()
+
+const { currentUser } = storeToRefs(authStore)
+const { activeProject } = storeToRefs(projectsStore)
+const { activeDoc } = storeToRefs(docsStore)
+const canEdit = computed(() => can('update', activeDoc.value?.id))
+const activeCategoryName = computed(() =>
+  docsStore.activeCategories.find(c => c.docs.some(d => d.id === activeDoc.value?.id))?.name ?? ''
+)
 
 onMounted(() => appStore.initTheme())
 
@@ -94,6 +107,10 @@ const saveOpen = ref(false)
 const saveConfirmed = ref(false)
 
 function handleSaveConfirm() {
+  const html = editorRef.value?.editor?.getHTML()
+  if (html !== undefined && activeDoc.value) {
+    docsStore.updateDoc(activeDoc.value.id, { content: html })
+  }
   saveConfirmed.value = true
   saveOpen.value = false
   setTimeout(() => {
@@ -126,7 +143,7 @@ function handleSetLink() {
           stroke="currentColor"
           stroke-width="2"
         ><path d="m15 18-6-6 6-6" /></svg>
-        DevVault Backend API
+        {{ activeProject?.name }}
       </NuxtLink>
       <svg
         width="12"
@@ -137,7 +154,7 @@ function handleSetLink() {
         stroke-width="2"
         style="color:var(--text-3)"
       ><path d="m9 18 6-6-6-6" /></svg>
-      <span style="font-size:12px;color:var(--text-3)">API Documentation</span>
+      <span style="font-size:12px;color:var(--text-3)">{{ activeCategoryName }}</span>
       <svg
         width="12"
         height="12"
@@ -147,7 +164,7 @@ function handleSetLink() {
         stroke-width="2"
         style="color:var(--text-3)"
       ><path d="m9 18 6-6-6-6" /></svg>
-      <span style="font-size:13px;font-weight:600">Authentication Guide</span>
+      <span style="font-size:13px;font-weight:600">{{ activeDoc?.title }}</span>
       <div style="flex:1" />
 
       <!-- Status badge -->
@@ -168,7 +185,7 @@ function handleSetLink() {
           ><path d="m6 9 6 6 6-6" /></svg>
         </button>
         <div
-          v-if="statusOpen"
+          v-if="statusOpen && canEdit"
           class="status-dropdown"
         >
           <button
@@ -186,10 +203,10 @@ function handleSetLink() {
         </div>
       </div>
 
-      <a
-        href="#"
+      <NuxtLink
+        to="/version-history"
         class="version-badge"
-      >v5</a>
+      >v{{ activeDoc?.version }}</NuxtLink>
       <button
         class="hdr-btn"
         @click="appStore.openShare()"
@@ -232,9 +249,11 @@ function handleSetLink() {
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div class="avatar">
-        DF
-      </div>
+      <ClientOnly>
+        <div class="avatar">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Editor + panel -->
@@ -843,6 +862,7 @@ function handleSetLink() {
           </div>
           <div style="flex:1" />
           <button
+            v-if="canEdit"
             id="tb-save"
             name="tb-save"
             class="save-btn"
@@ -866,6 +886,7 @@ function handleSetLink() {
           <ShadTiptapEditor
             ref="editorRef"
             :content="docsStore.activeContent"
+            :readonly="!canEdit"
             style="flex:1;overflow-y:auto"
           />
           <template #fallback>
@@ -898,7 +919,7 @@ function handleSetLink() {
             <div class="meta-label">
               Category
             </div>
-            <span style="font-size:13px">API Documentation</span>
+            <span style="font-size:13px">{{ activeCategoryName }}</span>
           </div>
           <div>
             <div class="meta-label">
@@ -906,23 +927,23 @@ function handleSetLink() {
             </div>
             <div style="display:flex;align-items:center;gap:6px">
               <div style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">
-                DF
+                {{ (activeDoc?.author ?? '?').split(' ').map(s => s[0]).join('').slice(0, 2) }}
               </div>
-              <span style="font-size:13px">Drew Ferrer</span>
+              <span style="font-size:13px">{{ activeDoc?.author }}</span>
             </div>
           </div>
           <div>
             <div class="meta-label">
               Last edited
             </div>
-            <span style="font-size:13px">2 hours ago</span>
+            <span style="font-size:13px">{{ activeDoc?.updatedAt }}</span>
           </div>
           <div>
             <div class="meta-label">
               Version
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:13px;font-weight:600">v5</span>
+              <span style="font-size:13px;font-weight:600">v{{ activeDoc?.version }}</span>
               <NuxtLink
                 to="/version-history"
                 class="meta-link"

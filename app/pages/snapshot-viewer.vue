@@ -1,26 +1,31 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
 import { useDocumentsStore } from '~/stores/documents'
 import { storeToRefs } from 'pinia'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const docsStore = useDocumentsStore()
-const { versions } = storeToRefs(docsStore)
+const { can } = usePermissions()
+const { currentUser } = storeToRefs(authStore)
+const { activeDoc, activeVersions } = storeToRefs(docsStore)
+const canRestore = computed(() => can('update', activeDoc.value?.id))
 const route = useRoute()
 
 onMounted(() => {
   appStore.initTheme()
   const vParam = Number(route.query.v)
-  if (!vParam || !versions.value.find(ver => ver.v === vParam)) {
+  if (!vParam || !activeVersions.value.find(ver => ver.v === vParam)) {
     navigateTo('/version-history')
   }
 })
 
 const vParam = computed(() => Number(route.query.v))
-const snapshot = computed(() => versions.value.find(ver => ver.v === vParam.value) ?? null)
-const currentVer = computed(() => versions.value.find(ver => ver.current) ?? null)
+const snapshot = computed(() => activeVersions.value.find(ver => ver.v === vParam.value) ?? null)
+const currentVer = computed(() => activeVersions.value.find(ver => ver.current) ?? null)
 
 const restoreModalOpen = ref(false)
 
@@ -75,9 +80,11 @@ function handleRestore() {
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div class="avatar">
-        DF
-      </div>
+      <ClientOnly>
+        <div class="avatar">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Editor + panel -->
@@ -156,7 +163,7 @@ function handleRestore() {
           </div>
 
           <div
-            v-if="!snapshot.current"
+            v-if="!snapshot.current && canRestore"
             style="border-top:1px solid var(--border);padding-top:14px"
           >
             <button

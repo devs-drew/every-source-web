@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const step = ref(1)
+
+const orgName = ref('')
+const firstName = ref('')
+const lastName = ref('')
+const email = ref('')
+const password = ref('')
+const error = ref('')
 
 onMounted(() => {
   appStore.initTheme()
@@ -15,6 +24,17 @@ function nextStep() {
 }
 function prevStep() {
   if (step.value > 1) step.value--
+}
+
+function createAccount() {
+  error.value = ''
+  if (!firstName.value || !email.value || password.value.length < 8) {
+    error.value = 'Enter your name, email, and a password of at least 8 characters.'
+    return
+  }
+  const res = authStore.register(firstName.value, lastName.value, email.value, password.value, orgName.value || 'My Organization')
+  if (res.ok) nextStep()
+  else error.value = res.error ?? 'Could not create account.'
 }
 </script>
 
@@ -111,6 +131,9 @@ function prevStep() {
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Organization name</label>
               <input
+                id="org-name"
+                v-model="orgName"
+                name="org-name"
                 type="text"
                 placeholder="Acme Inc."
                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -164,6 +187,9 @@ function prevStep() {
               <div style="flex:1">
                 <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">First name</label>
                 <input
+                  id="first-name"
+                  v-model="firstName"
+                  name="first-name"
                   type="text"
                   placeholder="Drew"
                   style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -172,6 +198,9 @@ function prevStep() {
               <div style="flex:1">
                 <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Last name</label>
                 <input
+                  id="last-name"
+                  v-model="lastName"
+                  name="last-name"
                   type="text"
                   placeholder="Ferrer"
                   style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -181,6 +210,9 @@ function prevStep() {
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Work email</label>
               <input
+                id="email"
+                v-model="email"
+                name="email"
                 type="email"
                 placeholder="drew@acme.com"
                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -189,22 +221,35 @@ function prevStep() {
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Password</label>
               <input
+                id="password"
+                v-model="password"
+                name="password"
                 type="password"
                 placeholder="Min. 8 characters"
                 style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
               >
             </div>
+            <p
+              v-if="error"
+              style="font-size:12px;color:#dc2626"
+            >
+              {{ error }}
+            </p>
           </div>
           <div style="display:flex;gap:10px">
             <button
+              id="onboarding-back"
+              name="onboarding-back"
               style="padding:11px 20px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;color:var(--text)"
               @click="prevStep"
             >
               Back
             </button>
             <button
+              id="create-account"
+              name="create-account"
               style="flex:1;padding:11px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer"
-              @click="nextStep"
+              @click="createAccount"
             >
               Create account →
             </button>
