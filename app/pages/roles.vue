@@ -1,26 +1,96 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
+import { useProjectsStore } from '~/stores/projects'
+import { useRolesStore, type Perm, type Perms, type Override } from '~/stores/roles'
+import { useDocumentsStore } from '~/stores/documents'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const projectsStore = useProjectsStore()
+const rolesStore = useRolesStore()
+const docsStore = useDocumentsStore()
+const { can } = usePermissions()
+
+const { currentUser } = storeToRefs(authStore)
+const { activeProject } = storeToRefs(projectsStore)
+const canManageRoles = computed(() => can('roles'))
 const variant = ref<'A' | 'B'>('A')
 
-onMounted(() => {
-  appStore.initTheme()
-})
+onMounted(() => appStore.initTheme())
 
-type PermKey = 'create' | 'read' | 'update' | 'delete' | 'members' | 'roles'
-type RoleKey = 'Developer' | 'QA' | 'PM'
+const pid = computed(() => activeProject.value?.id ?? '')
+const roles = computed(() => rolesStore.projectRoles(pid.value))
+const overrides = computed(() => rolesStore.projectOverrides(pid.value))
+const projectDocs = computed(() => docsStore.docsForProject(pid.value))
+const memberUsers = computed(() =>
+  projectsStore.projectMembers(pid.value).map((m) => {
+    const u = authStore.users.find(user => user.id === m.userId)
+    return { userId: m.userId, name: u ? `${u.firstName} ${u.lastName}`.trim() : 'Unknown' }
+  })
+)
 
-const perms = reactive({
-  Developer: { create: true, read: true, update: true, delete: false, members: false, roles: false },
-  QA: { create: false, read: true, update: false, delete: false, members: false, roles: false },
-  PM: { create: false, read: true, update: false, delete: false, members: true, roles: false }
-})
+const permCols: { key: Perm, label: string }[] = [
+  { key: 'create', label: 'Create' },
+  { key: 'read', label: 'Read' },
+  { key: 'update', label: 'Update' },
+  { key: 'delete', label: 'Delete' },
+  { key: 'members', label: 'Manage Members' },
+  { key: 'roles', label: 'Manage Roles' }
+]
+const docPermCols = permCols.slice(0, 4)
 
-function togglePerm(role: RoleKey, key: PermKey) {
-  perms[role][key] = !perms[role][key]
+function memberCount(roleId: string) {
+  return projectsStore.projectMembers(pid.value).filter(m => m.roleId === roleId).length
+}
+
+function toggle(roleId: string, isSystem: boolean, key: Perm, value: boolean) {
+  if (!canManageRoles.value || isSystem) return
+  rolesStore.updateRolePerm(roleId, key, !value)
+}
+
+// New role modal
+const roleName = ref('')
+const rolePerms = reactive<Perms>({ create: false, read: true, update: false, delete: false, members: false, roles: false })
+function openRole() {
+  roleName.value = ''
+  Object.assign(rolePerms, { create: false, read: true, update: false, delete: false, members: false, roles: false })
+  appStore.openRoleModal()
+}
+function createRole() {
+  if (!pid.value || !roleName.value.trim()) return
+  rolesStore.createRole(pid.value, roleName.value, { ...rolePerms })
+  appStore.closeRoleModal()
+}
+
+// Override modal
+const ovDoc = ref('')
+const ovSubject = ref('')
+const ovPerm = ref<Perm>('read')
+const ovEffect = ref<'allow' | 'deny'>('allow')
+function openOverride() {
+  ovDoc.value = projectDocs.value[0]?.id ?? ''
+  ovSubject.value = ''
+  ovPerm.value = 'read'
+  ovEffect.value = 'allow'
+  appStore.openOverrideModal()
+}
+function saveOverride() {
+  if (!pid.value || !ovDoc.value || !ovSubject.value) return
+  const [type, id] = ovSubject.value.split(':')
+  rolesStore.addOverride(pid.value, ovDoc.value, type as 'role' | 'user', id ?? '', ovPerm.value, ovEffect.value)
+  appStore.closeOverrideModal()
+}
+
+function docTitle(id: string) {
+  return projectDocs.value.find(d => d.id === id)?.title ?? '—'
+}
+function subjectLabel(o: Override) {
+  if (o.subjectType === 'role') return rolesStore.roles.find(r => r.id === o.subjectId)?.name ?? 'Role'
+  const u = authStore.users.find(user => user.id === o.subjectId)
+  return u ? `${u.firstName} ${u.lastName}`.trim() : 'User'
 }
 </script>
 
@@ -40,7 +110,7 @@ function togglePerm(role: RoleKey, key: PermKey) {
           stroke="currentColor"
           stroke-width="2"
         ><path d="m15 18-6-6 6-6" /></svg>
-        DevVault Backend API
+        {{ activeProject?.name }}
       </NuxtLink>
       <svg
         width="12"
@@ -74,9 +144,11 @@ function togglePerm(role: RoleKey, key: PermKey) {
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
-        DF
-      </div>
+      <ClientOnly>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Body -->
@@ -92,8 +164,11 @@ function togglePerm(role: RoleKey, key: PermKey) {
             </p>
           </div>
           <button
+            v-if="canManageRoles"
+            id="new-role"
+            name="new-role"
             style="display:flex;align-items:center;gap:7px;padding:9px 16px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0"
-            @click="appStore.openRoleModal()"
+            @click="openRole"
           >
             <svg
               width="12"
@@ -117,325 +192,211 @@ function togglePerm(role: RoleKey, key: PermKey) {
           </button>
         </div>
 
-        <!-- Variant A: Matrix -->
-        <template v-if="variant === 'A'">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px">
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse">
-                <thead>
-                  <tr style="border-bottom:1px solid var(--border)">
-                    <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap;min-width:160px;background:var(--bg)">
-                      Role
-                    </th>
-                    <th
-                      v-for="col in ['Create', 'Read', 'Update', 'Delete', 'Manage Members', 'Manage Roles']"
-                      :key="col"
-                      style="padding:14px 16px;font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;background:var(--bg);text-align:center"
-                    >
-                      {{ col }}
-                    </th>
-                    <th style="padding:14px 16px;background:var(--bg)" />
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Admin - read only -->
-                  <tr style="border-bottom:1px solid var(--border)">
-                    <td style="padding:14px 20px">
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <div style="width:7px;height:7px;border-radius:50%;background:#0c0c0c;flex-shrink:0" />
-                        <div>
-                          <div style="font-size:13px;font-weight:600">
-                            Admin
-                          </div>
-                          <div style="font-size:11px;color:var(--text-3)">
-                            System default
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td
-                      v-for="i in 6"
-                      :key="i"
-                      style="text-align:center;padding:14px 16px"
-                    >
-                      <span style="color:#16a34a;font-size:16px">✓</span>
-                    </td>
-                    <td style="padding:14px 16px;text-align:right">
-                      <span style="font-size:11px;color:var(--text-3)">System</span>
-                    </td>
-                  </tr>
-                  <!-- Developer -->
-                  <tr style="border-bottom:1px solid var(--border)">
-                    <td style="padding:14px 20px">
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <div style="width:7px;height:7px;border-radius:50%;background:#2563eb;flex-shrink:0" />
-                        <div>
-                          <div style="font-size:13px;font-weight:600">
-                            Developer
-                          </div>
-                          <div style="font-size:11px;color:var(--text-3)">
-                            3 members
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td
-                      v-for="key in (['create', 'read', 'update', 'delete', 'members', 'roles'] as PermKey[])"
-                      :key="key"
-                      style="text-align:center;padding:14px 16px"
-                    >
-                      <button
-                        :style="`width:20px;height:20px;border-radius:4px;border:2px solid ${perms.Developer[key] ? 'var(--accent)' : 'var(--border-2)'};background:${perms.Developer[key] ? 'var(--accent)' : 'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto`"
-                        @click="togglePerm('Developer', key)"
+        <ClientOnly>
+          <!-- Variant A: Matrix -->
+          <template v-if="variant === 'A'">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px">
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse">
+                  <thead>
+                    <tr style="border-bottom:1px solid var(--border)">
+                      <th style="text-align:left;padding:14px 20px;font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap;min-width:160px;background:var(--bg)">
+                        Role
+                      </th>
+                      <th
+                        v-for="col in permCols"
+                        :key="col.key"
+                        style="padding:14px 16px;font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;background:var(--bg);text-align:center"
                       >
-                        <svg
-                          v-if="perms.Developer[key]"
-                          width="11"
-                          height="11"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="var(--accent-fg)"
-                          stroke-width="3"
-                        ><polyline points="20 6 9 17 4 12" /></svg>
-                      </button>
-                    </td>
-                    <td style="padding:14px 16px;text-align:right">
-                      <button style="font-size:12px;color:var(--text-2);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px">
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                  <!-- QA -->
-                  <tr style="border-bottom:1px solid var(--border)">
-                    <td style="padding:14px 20px">
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <div style="width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0" />
-                        <div>
-                          <div style="font-size:13px;font-weight:600">
-                            QA
-                          </div>
-                          <div style="font-size:11px;color:var(--text-3)">
-                            1 member
+                        {{ col.label }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="role in roles"
+                      :key="role.id"
+                      style="border-bottom:1px solid var(--border)"
+                    >
+                      <td style="padding:14px 20px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <div :style="`width:7px;height:7px;border-radius:50%;background:${role.color};flex-shrink:0`" />
+                          <div>
+                            <div style="font-size:13px;font-weight:600">
+                              {{ role.name }}
+                            </div>
+                            <div style="font-size:11px;color:var(--text-3)">
+                              {{ role.isSystem ? 'System default' : `${memberCount(role.id)} members` }}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td
-                      v-for="key in (['create', 'read', 'update', 'delete', 'members', 'roles'] as PermKey[])"
-                      :key="key"
-                      style="text-align:center;padding:14px 16px"
-                    >
-                      <button
-                        :style="`width:20px;height:20px;border-radius:4px;border:2px solid ${perms.QA[key] ? 'var(--accent)' : 'var(--border-2)'};background:${perms.QA[key] ? 'var(--accent)' : 'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto`"
-                        @click="togglePerm('QA', key)"
+                      </td>
+                      <td
+                        v-for="col in permCols"
+                        :key="col.key"
+                        style="text-align:center;padding:14px 16px"
                       >
-                        <svg
-                          v-if="perms.QA[key]"
-                          width="11"
-                          height="11"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="var(--accent-fg)"
-                          stroke-width="3"
-                        ><polyline points="20 6 9 17 4 12" /></svg>
-                      </button>
-                    </td>
-                    <td style="padding:14px 16px;text-align:right">
-                      <button style="font-size:12px;color:var(--text-2);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px">
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                  <!-- PM -->
-                  <tr>
-                    <td style="padding:14px 20px">
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <div style="width:7px;height:7px;border-radius:50%;background:#9333ea;flex-shrink:0" />
-                        <div>
-                          <div style="font-size:13px;font-weight:600">
-                            PM
-                          </div>
-                          <div style="font-size:11px;color:var(--text-3)">
-                            1 member
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td
-                      v-for="key in (['create', 'read', 'update', 'delete', 'members', 'roles'] as PermKey[])"
-                      :key="key"
-                      style="text-align:center;padding:14px 16px"
-                    >
-                      <button
-                        :style="`width:20px;height:20px;border-radius:4px;border:2px solid ${perms.PM[key] ? 'var(--accent)' : 'var(--border-2)'};background:${perms.PM[key] ? 'var(--accent)' : 'transparent'};cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto`"
-                        @click="togglePerm('PM', key)"
-                      >
-                        <svg
-                          v-if="perms.PM[key]"
-                          width="11"
-                          height="11"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="var(--accent-fg)"
-                          stroke-width="3"
-                        ><polyline points="20 6 9 17 4 12" /></svg>
-                      </button>
-                    </td>
-                    <td style="padding:14px 16px;text-align:right">
-                      <button style="font-size:12px;color:var(--text-2);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px">
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                        <span
+                          v-if="role.isSystem"
+                          :style="`font-size:16px;color:${role.perms[col.key] ? '#16a34a' : 'var(--text-3)'}`"
+                        >{{ role.perms[col.key] ? '✓' : '—' }}</span>
+                        <button
+                          v-else
+                          :style="`width:20px;height:20px;border-radius:4px;border:2px solid ${role.perms[col.key] ? 'var(--accent)' : 'var(--border-2)'};background:${role.perms[col.key] ? 'var(--accent)' : 'transparent'};cursor:${canManageRoles ? 'pointer' : 'not-allowed'};display:flex;align-items:center;justify-content:center;margin:0 auto`"
+                          @click="toggle(role.id, role.isSystem, col.key, role.perms[col.key])"
+                        >
+                          <svg
+                            v-if="role.perms[col.key]"
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="var(--accent-fg)"
+                            stroke-width="3"
+                          ><polyline points="20 6 9 17 4 12" /></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <!-- Document-level overrides -->
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)">
-            <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <!-- Document-level overrides -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)">
+              <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <h2 style="font-size:14px;font-weight:700;margin-bottom:2px">
+                    Document-level overrides
+                  </h2>
+                  <p style="font-size:12px;color:var(--text-3)">
+                    Grant or deny access on specific documents, overriding the role's default.
+                  </p>
+                </div>
+                <button
+                  v-if="canManageRoles"
+                  id="add-override"
+                  name="add-override"
+                  style="padding:7px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-2)"
+                  @click="openOverride"
+                >
+                  + Add override
+                </button>
+              </div>
               <div>
-                <h2 style="font-size:14px;font-weight:700;margin-bottom:2px">
-                  Document-level overrides
-                </h2>
-                <p style="font-size:12px;color:var(--text-3)">
-                  Grant or deny access on specific documents, overriding the role's default.
-                </p>
-              </div>
-              <button
-                style="padding:7px 12px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-2)"
-                @click="appStore.openOverrideModal()"
-              >
-                + Add override
-              </button>
-            </div>
-            <div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text-3)">
-                <span>Document</span><span>Role / User</span><span>Permission</span><span>Effect</span><span />
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border)">
-                <div>
-                  <div style="font-size:13px;font-weight:500">
-                    Authentication Guide
-                  </div>
-                  <div style="font-size:11px;color:var(--text-3)">
-                    API Documentation
-                  </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text-3)">
+                  <span>Document</span><span>Role / User</span><span>Permission</span><span>Effect</span><span />
                 </div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <div style="width:20px;height:20px;border-radius:50%;background:#9333ea;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">
-                    PM
-                  </div>
-                  <span style="font-size:13px">PM</span>
+                <div
+                  v-if="overrides.length === 0"
+                  style="padding:20px;text-align:center;font-size:12px;color:var(--text-3)"
+                >
+                  No overrides yet.
                 </div>
-                <span style="font-size:12px;font-weight:500">Update</span>
-                <span style="font-size:12px;font-weight:600;color:#dc2626">✕ Deny</span>
-                <button style="font-size:12px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px">
-                  Remove
-                </button>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;align-items:center;padding:12px 20px">
-                <div>
-                  <div style="font-size:13px;font-weight:500">
-                    Error Codes
-                  </div>
-                  <div style="font-size:11px;color:var(--text-3)">
-                    API Documentation
-                  </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <div style="width:20px;height:20px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--accent-fg)">
-                    MS
-                  </div>
-                  <span style="font-size:13px">Maria Santos</span>
-                </div>
-                <span style="font-size:12px;font-weight:500">Delete</span>
-                <span style="font-size:12px;font-weight:600;color:#16a34a">✓ Allow</span>
-                <button style="font-size:12px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px">
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Variant B: Role Cards -->
-        <template v-else>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
-            <div
-              v-for="role in [
-                { name: 'Admin', color: '#0c0c0c', count: 'System default · Owner', badge: true, perms: ['Create documents', 'Read documents', 'Update documents', 'Delete documents', 'Manage members', 'Manage roles'], have: [true, true, true, true, true, true] },
-                { name: 'Developer', color: '#2563eb', count: 'Project role · 3 members', badge: false, perms: ['Create documents', 'Read documents', 'Update documents', 'Delete documents', 'Manage members', 'Manage roles'], have: [true, true, true, false, false, false] },
-                { name: 'QA', color: '#16a34a', count: 'Project role · 1 member', badge: false, perms: ['Create documents', 'Read documents', 'Update documents', 'Delete documents', 'Manage members', 'Manage roles'], have: [false, true, false, false, false, false] },
-                { name: 'PM', color: '#9333ea', count: 'Project role · 1 member', badge: false, perms: ['Create documents', 'Read documents', 'Update documents', 'Delete documents', 'Manage members', 'Manage roles'], have: [false, true, false, false, true, false] }
-              ]"
-              :key="role.name"
-              style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--shadow)"
-            >
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                <div style="display:flex;align-items:center;gap:10px">
-                  <div :style="`width:10px;height:10px;border-radius:50%;background:${role.color};flex-shrink:0`" />
+                <div
+                  v-for="o in overrides"
+                  :key="o.id"
+                  style="display:grid;grid-template-columns:1fr 1fr 100px 100px 80px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border)"
+                >
                   <div>
-                    <div style="font-size:15px;font-weight:700">
-                      {{ role.name }}
+                    <div style="font-size:13px;font-weight:500">
+                      {{ docTitle(o.docId) }}
                     </div>
                     <div style="font-size:11px;color:var(--text-3)">
-                      {{ role.count }}
+                      {{ o.subjectType === 'role' ? 'Role' : 'User' }}
                     </div>
                   </div>
-                </div>
-                <span
-                  v-if="role.badge"
-                  style="font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--text-3)"
-                >System</span>
-                <button
-                  v-else
-                  style="font-size:12px;color:var(--text-2);background:none;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;padding:4px 10px;font-family:inherit"
-                >
-                  Edit
-                </button>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6px">
-                <div
-                  v-for="(p, i) in role.perms"
-                  :key="p"
-                  style="display:flex;align-items:center;gap:7px;font-size:13px"
-                  :style="`color:${role.have[i] ? 'var(--text-2)' : 'var(--text-3)'}`"
-                >
-                  <span :style="`font-weight:700;color:${role.have[i] ? '#16a34a' : 'var(--text-3)'}`">{{ role.have[i] ? '✓' : '—' }}</span>
-                  {{ p }}
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:13px">{{ subjectLabel(o) }}</span>
+                  </div>
+                  <span style="font-size:12px;font-weight:500;text-transform:capitalize">{{ o.perm }}</span>
+                  <span
+                    style="font-size:12px;font-weight:600"
+                    :style="`color:${o.effect === 'allow' ? '#16a34a' : '#dc2626'}`"
+                  >{{ o.effect === 'allow' ? '✓ Allow' : '✕ Deny' }}</span>
+                  <button
+                    v-if="canManageRoles"
+                    :id="`remove-override-${o.id}`"
+                    :name="`remove-override-${o.id}`"
+                    style="font-size:12px;color:var(--text-3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px"
+                    @click="rolesStore.removeOverride(o.id)"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
             </div>
+          </template>
 
-            <!-- New role card -->
-            <button
-              style="background:transparent;border:2px dashed var(--border);border-radius:var(--r);padding:22px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-family:inherit;color:var(--text-3);min-height:180px"
-              @click="appStore.openRoleModal()"
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-              ><line
-                x1="12"
-                y1="5"
-                x2="12"
-                y2="19"
-              /><line
-                x1="5"
-                y1="12"
-                x2="19"
-                y2="12"
-              /></svg>
-              <span style="font-size:13px;font-weight:600">New role</span>
-            </button>
-          </div>
-        </template>
+          <!-- Variant B: Role Cards -->
+          <template v-else>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
+              <div
+                v-for="role in roles"
+                :key="role.id"
+                style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--shadow)"
+              >
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div :style="`width:10px;height:10px;border-radius:50%;background:${role.color};flex-shrink:0`" />
+                    <div>
+                      <div style="font-size:15px;font-weight:700">
+                        {{ role.name }}
+                      </div>
+                      <div style="font-size:11px;color:var(--text-3)">
+                        {{ role.isSystem ? 'System default · Owner' : `Project role · ${memberCount(role.id)} members` }}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    v-if="role.isSystem"
+                    style="font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--text-3)"
+                  >System</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div
+                    v-for="col in permCols"
+                    :key="col.key"
+                    style="display:flex;align-items:center;gap:7px;font-size:13px"
+                    :style="`color:${role.perms[col.key] ? 'var(--text-2)' : 'var(--text-3)'}`"
+                  >
+                    <span :style="`font-weight:700;color:${role.perms[col.key] ? '#16a34a' : 'var(--text-3)'}`">{{ role.perms[col.key] ? '✓' : '—' }}</span>
+                    {{ col.label }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- New role card -->
+              <button
+                v-if="canManageRoles"
+                id="new-role-card"
+                name="new-role-card"
+                style="background:transparent;border:2px dashed var(--border);border-radius:var(--r);padding:22px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-family:inherit;color:var(--text-3);min-height:180px"
+                @click="openRole"
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                ><line
+                  x1="12"
+                  y1="5"
+                  x2="12"
+                  y2="19"
+                /><line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"
+                /></svg>
+                <span style="font-size:13px;font-weight:600">New role</span>
+              </button>
+            </div>
+          </template>
+        </ClientOnly>
       </div>
     </div>
 
@@ -465,6 +426,9 @@ function togglePerm(role: RoleKey, key: PermKey) {
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Role name</label>
               <input
+                id="role-name"
+                v-model="roleName"
+                name="role-name"
                 type="text"
                 placeholder="e.g. Senior Developer"
                 style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -474,32 +438,37 @@ function togglePerm(role: RoleKey, key: PermKey) {
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Document permissions</label>
               <div style="display:flex;flex-direction:column;gap:8px">
                 <label
-                  v-for="p in ['Create documents', 'Read documents', 'Update documents', 'Delete documents']"
-                  :key="p"
+                  v-for="col in docPermCols"
+                  :key="col.key"
                   style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px"
                 >
                   <input
+                    v-model="rolePerms[col.key]"
                     type="checkbox"
-                    :checked="p === 'Read documents'"
                     style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer"
                   >
-                  {{ p }}
+                  {{ col.label }} documents
                 </label>
               </div>
             </div>
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Project permissions</label>
               <div style="display:flex;flex-direction:column;gap:8px">
-                <label
-                  v-for="p in ['Manage members', 'Manage roles']"
-                  :key="p"
-                  style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px"
-                >
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
                   <input
+                    v-model="rolePerms.members"
                     type="checkbox"
                     style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer"
                   >
-                  {{ p }}
+                  Manage members
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+                  <input
+                    v-model="rolePerms.roles"
+                    type="checkbox"
+                    style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer"
+                  >
+                  Manage roles
                 </label>
               </div>
             </div>
@@ -511,8 +480,10 @@ function togglePerm(role: RoleKey, key: PermKey) {
                 Cancel
               </button>
               <button
+                id="create-role"
+                name="create-role"
                 style="flex:2;padding:9px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"
-                @click="appStore.closeRoleModal()"
+                @click="createRole"
               >
                 Create role
               </button>
@@ -547,29 +518,80 @@ function togglePerm(role: RoleKey, key: PermKey) {
           <div style="padding:22px;display:flex;flex-direction:column;gap:14px">
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Document</label>
-              <select style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer">
-                <option>Select a document...</option>
-                <option>Authentication Guide</option><option>REST Endpoints</option><option>Error Codes</option>
+              <select
+                id="override-doc"
+                v-model="ovDoc"
+                name="override-doc"
+                style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer"
+              >
+                <option
+                  v-for="d in projectDocs"
+                  :key="d.id"
+                  :value="d.id"
+                >
+                  {{ d.title }}
+                </option>
               </select>
             </div>
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Role or user</label>
-              <select style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer">
-                <option>Select a role or user...</option>
-                <option>Role: Developer</option><option>Role: QA</option><option>Role: PM</option><option>User: Maria Santos</option>
+              <select
+                id="override-subject"
+                v-model="ovSubject"
+                name="override-subject"
+                style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer"
+              >
+                <option value="">
+                  Select a role or user...
+                </option>
+                <option
+                  v-for="r in roles"
+                  :key="r.id"
+                  :value="`role:${r.id}`"
+                >
+                  Role: {{ r.name }}
+                </option>
+                <option
+                  v-for="u in memberUsers"
+                  :key="u.userId"
+                  :value="`user:${u.userId}`"
+                >
+                  User: {{ u.name }}
+                </option>
               </select>
             </div>
             <div style="display:flex;gap:10px">
               <div style="flex:1">
                 <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Permission</label>
-                <select style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer">
-                  <option>Read</option><option>Create</option><option>Update</option><option>Delete</option>
+                <select
+                  id="override-perm"
+                  v-model="ovPerm"
+                  name="override-perm"
+                  style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer"
+                >
+                  <option
+                    v-for="col in docPermCols"
+                    :key="col.key"
+                    :value="col.key"
+                  >
+                    {{ col.label }}
+                  </option>
                 </select>
               </div>
               <div style="flex:1">
                 <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Effect</label>
-                <select style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer">
-                  <option>Allow</option><option>Deny</option>
+                <select
+                  id="override-effect"
+                  v-model="ovEffect"
+                  name="override-effect"
+                  style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;cursor:pointer"
+                >
+                  <option value="allow">
+                    Allow
+                  </option>
+                  <option value="deny">
+                    Deny
+                  </option>
                 </select>
               </div>
             </div>
@@ -581,8 +603,10 @@ function togglePerm(role: RoleKey, key: PermKey) {
                 Cancel
               </button>
               <button
+                id="save-override"
+                name="save-override"
                 style="flex:2;padding:9px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"
-                @click="appStore.closeOverrideModal()"
+                @click="saveOverride"
               >
                 Save override
               </button>

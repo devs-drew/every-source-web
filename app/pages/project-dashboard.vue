@@ -1,17 +1,42 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
+import { useProjectsStore } from '~/stores/projects'
 import { useDocumentsStore } from '~/stores/documents'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const projectsStore = useProjectsStore()
 const docsStore = useDocumentsStore()
+const { can } = usePermissions()
+
+const { currentUser } = storeToRefs(authStore)
+const { activeProject } = storeToRefs(projectsStore)
 const { activeDoc } = storeToRefs(docsStore)
+const categories = computed(() => docsStore.activeCategories)
 const activeCategory = computed(() =>
-  docsStore.categories.find(cat => cat.docs.some(d => d.id === docsStore.activeDocId))
+  docsStore.activeCategories.find(cat => cat.docs.some(d => d.id === docsStore.activeDocId))
 )
+const docCount = computed(() => activeProject.value ? docsStore.docsForProject(activeProject.value.id).length : 0)
+const memberCount = computed(() => activeProject.value ? projectsStore.projectMembers(activeProject.value.id).length : 0)
+
+const newCategoryName = ref('')
 
 onMounted(() => appStore.initTheme())
+
+function createCategory() {
+  if (!activeProject.value || !newCategoryName.value.trim()) return
+  docsStore.createCategory(activeProject.value.id, newCategoryName.value)
+  newCategoryName.value = ''
+  appStore.closeCategoryModal()
+}
+
+function addDoc(categoryId: string) {
+  docsStore.createDoc(categoryId, 'Untitled Document')
+  navigateTo('/document-editor')
+}
 
 const statusColor = (status: string) =>
   status === 'published' ? '#16a34a' : status === 'draft' ? '#d97706' : '#6b7280'
@@ -79,7 +104,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
       </NuxtLink>
       <div class="hdr-divider" />
       <NuxtLink
-        to="/"
+        to="/projects"
         class="breadcrumb-link"
       >Projects</NuxtLink>
       <svg
@@ -91,7 +116,9 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
         stroke-width="2"
         style="color:var(--text-3)"
       ><path d="m9 18 6-6-6-6" /></svg>
-      <span style="font-size:12px;font-weight:600">DevVault Backend API</span>
+      <ClientOnly>
+        <span style="font-size:12px;font-weight:600">{{ activeProject?.name }}</span>
+      </ClientOnly>
       <div style="flex:1" />
       <button
         class="hdr-btn"
@@ -139,9 +166,11 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div class="avatar">
-        DF
-      </div>
+      <ClientOnly>
+        <div class="avatar">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Body -->
@@ -150,7 +179,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
       <aside class="sidebar">
         <div style="padding:14px 16px 10px">
           <div style="font-size:13px;font-weight:700;letter-spacing:-.3px;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between">
-            DevVault Backend API
+            {{ activeProject?.name }}
             <svg
               width="14"
               height="14"
@@ -174,7 +203,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
             /></svg>
           </div>
           <p style="font-size:11px;color:var(--text-3)">
-            4 members · 8 documents
+            {{ memberCount }} members · {{ docCount }} documents
           </p>
         </div>
 
@@ -201,42 +230,59 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
             Documentation
           </div>
 
-          <div
-            v-for="cat in docsStore.categories"
-            :key="cat.id"
-            style="margin-bottom:2px"
-          >
-            <button
-              class="cat-btn"
-              @click="docsStore.toggleCategory(cat.id)"
-            >
-              <span
-                style="font-size:10px;display:inline-block;transition:transform .15s"
-                :style="{ transform: cat.open ? 'rotate(0deg)' : 'rotate(-90deg)' }"
-              >▾</span>
-              <span style="flex:1;text-align:left">{{ cat.name }}</span>
-              <span style="font-size:10px;color:var(--text-3)">{{ cat.docs.length }}</span>
-            </button>
+          <ClientOnly>
             <div
-              v-if="cat.open"
-              style="padding:2px 0 2px 8px"
+              v-for="cat in categories"
+              :key="cat.id"
+              style="margin-bottom:2px"
             >
               <button
-                v-for="doc in cat.docs"
-                :key="doc.id"
-                type="button"
-                class="doc-link"
-                :class="{ 'doc-link--active': doc.id === docsStore.activeDocId }"
-                @click="docsStore.setActiveDoc(doc.id)"
+                class="cat-btn"
+                @click="docsStore.toggleCategory(cat.id)"
               >
                 <span
-                  class="status-dot"
-                  :style="{ background: statusColor(doc.status) }"
-                />
-                {{ doc.title }}
+                  style="font-size:10px;display:inline-block;transition:transform .15s"
+                  :style="{ transform: cat.open ? 'rotate(0deg)' : 'rotate(-90deg)' }"
+                >▾</span>
+                <span style="flex:1;text-align:left">{{ cat.name }}</span>
+                <span style="font-size:10px;color:var(--text-3)">{{ cat.docs.length }}</span>
               </button>
+              <div
+                v-if="cat.open"
+                style="padding:2px 0 2px 8px"
+              >
+                <button
+                  v-for="doc in cat.docs"
+                  :key="doc.id"
+                  type="button"
+                  class="doc-link"
+                  :class="{ 'doc-link--active': doc.id === docsStore.activeDocId }"
+                  @click="docsStore.setActiveDoc(doc.id)"
+                >
+                  <span
+                    class="status-dot"
+                    :style="{ background: statusColor(doc.status) }"
+                  />
+                  {{ doc.title }}
+                </button>
+                <button
+                  v-if="can('create')"
+                  :id="`add-doc-${cat.id}`"
+                  :name="`add-doc-${cat.id}`"
+                  type="button"
+                  class="doc-link"
+                  style="color:var(--text-3)"
+                  @click="addDoc(cat.id)"
+                >
+                  <span
+                    class="status-dot"
+                    style="background:transparent"
+                  />
+                  + New document
+                </button>
+              </div>
             </div>
-          </div>
+          </ClientOnly>
 
           <div
             class="section-label"
@@ -284,8 +330,13 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
           </NuxtLink>
         </div>
 
-        <div style="padding:10px;border-top:1px solid var(--border)">
+        <div
+          v-if="can('create')"
+          style="padding:10px;border-top:1px solid var(--border)"
+        >
           <button
+            id="new-category"
+            name="new-category"
             class="new-cat-btn"
             @click="appStore.openCategoryModal()"
           >
@@ -332,6 +383,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
               </div>
             </div>
             <NuxtLink
+              v-if="can('update', activeDoc?.id)"
               to="/document-editor"
               class="edit-btn"
             >Edit</NuxtLink>
@@ -436,9 +488,13 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
             <div>
               <label class="field-label">Category name</label>
               <input
+                id="category-name"
+                v-model="newCategoryName"
+                name="category-name"
                 type="text"
                 placeholder="e.g. API Documentation"
                 class="text-input"
+                @keyup.enter="createCategory"
               >
             </div>
             <div>
@@ -450,6 +506,7 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
                   v-for="s in suggestions"
                   :key="s"
                   class="chip"
+                  @click="newCategoryName = s"
                 >
                   {{ s }}
                 </button>
@@ -463,8 +520,10 @@ const suggestions = ['API Documentation', 'Style Guide', 'User Manual', 'Enginee
                 Cancel
               </button>
               <button
+                id="create-category-submit"
+                name="create-category-submit"
                 class="btn-primary"
-                @click="appStore.closeCategoryModal()"
+                @click="createCategory"
               >
                 Create category
               </button>

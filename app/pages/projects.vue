@@ -1,21 +1,43 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
+import { useProjectsStore } from '~/stores/projects'
+import { useDocumentsStore } from '~/stores/documents'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const projectsStore = useProjectsStore()
+const documentsStore = useDocumentsStore()
+
+const { currentUser } = storeToRefs(authStore)
+const projects = computed(() => projectsStore.myProjects)
+
+const newName = ref('')
+const newDesc = ref('')
 
 onMounted(() => {
   appStore.initTheme()
 })
 
-const projects = [
-  { emoji: '🔧', name: 'DevVault Backend API', desc: 'Backend API documentation and architecture', docs: 8, members: 4, updated: '2h ago', link: '/project-dashboard' },
-  { emoji: '🛒', name: 'Acme Storefront', desc: 'E-commerce platform docs and runbooks', docs: 5, members: 3, updated: '1d ago', link: '#' },
-  { emoji: '📊', name: 'DataPipeline Docs', desc: 'Data ingestion pipeline documentation', docs: 3, members: 2, updated: '3d ago', link: '#' },
-  { emoji: '📱', name: 'Mobile App v2', desc: 'iOS & Android release documentation', docs: 6, members: 5, updated: '5d ago', link: '#' },
-  { emoji: '📋', name: 'Internal Ops Wiki', desc: 'Team processes and internal guides', docs: 12, members: 8, updated: '1w ago', link: '#' }
-]
+function docCount(id: string) {
+  return documentsStore.docsForProject(id).length
+}
+function memberCount(id: string) {
+  return projectsStore.projectMembers(id).length
+}
+function openProject(id: string) {
+  projectsStore.setActiveProject(id)
+}
+function createProject() {
+  if (!newName.value.trim()) return
+  projectsStore.createProject(newName.value, newDesc.value)
+  newName.value = ''
+  newDesc.value = ''
+  appStore.closeNewProject()
+  navigateTo('/project-dashboard')
+}
 </script>
 
 <template>
@@ -98,9 +120,11 @@ const projects = [
       >
         {{ appStore.dark ? '☀' : '☾' }}
       </button>
-      <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
-        DF
-      </div>
+      <ClientOnly>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">
+          {{ currentUser?.initials ?? '?' }}
+        </div>
+      </ClientOnly>
     </header>
 
     <!-- Body -->
@@ -141,55 +165,60 @@ const projects = [
           </button>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-          <NuxtLink
-            v-for="p in projects"
-            :key="p.name"
-            :to="p.link"
-            class="proj-card"
-          >
-            <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
-              <div style="width:40px;height:40px;border-radius:var(--r);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{{ p.emoji }}</div>
-              <div>
-                <div style="font-size:14px;font-weight:700;margin-bottom:3px">{{ p.name }}</div>
-                <p style="font-size:12px;color:var(--text-2);line-height:1.4">{{ p.desc }}</p>
+        <ClientOnly>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+            <NuxtLink
+              v-for="p in projects"
+              :key="p.id"
+              to="/project-dashboard"
+              class="proj-card"
+              @click="openProject(p.id)"
+            >
+              <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+                <div style="width:40px;height:40px;border-radius:var(--r);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">{{ p.emoji }}</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;margin-bottom:3px">{{ p.name }}</div>
+                  <p style="font-size:12px;color:var(--text-2);line-height:1.4">{{ p.description }}</p>
+                </div>
               </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-3);padding-top:12px;border-top:1px solid var(--border)">
-              <span>{{ p.docs }} docs</span>
-              <span>·</span>
-              <span>{{ p.members }} members</span>
-              <span>·</span>
-              <span>{{ p.updated }}</span>
-            </div>
-          </NuxtLink>
+              <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-3);padding-top:12px;border-top:1px solid var(--border)">
+                <span>{{ docCount(p.id) }} docs</span>
+                <span>·</span>
+                <span>{{ memberCount(p.id) }} members</span>
+                <span>·</span>
+                <span>{{ p.createdAt }}</span>
+              </div>
+            </NuxtLink>
 
-          <!-- New project dashed card -->
-          <button
-            class="proj-card-new"
-            @click="appStore.openNewProject()"
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            ><line
-              x1="12"
-              y1="5"
-              x2="12"
-              y2="19"
-            /><line
-              x1="5"
-              y1="12"
-              x2="19"
-              y2="12"
-            /></svg>
-            <span style="font-size:13px;font-weight:600">New project</span>
-          </button>
-        </div>
+            <!-- New project dashed card -->
+            <button
+              id="new-project-card"
+              name="new-project-card"
+              class="proj-card-new"
+              @click="appStore.openNewProject()"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              ><line
+                x1="12"
+                y1="5"
+                x2="12"
+                y2="19"
+              /><line
+                x1="5"
+                y1="12"
+                x2="19"
+                y2="12"
+              /></svg>
+              <span style="font-size:13px;font-weight:600">New project</span>
+            </button>
+          </div>
+        </ClientOnly>
       </div>
     </div>
 
@@ -235,7 +264,7 @@ const projects = [
             </div>
             <div
               v-for="p in projects.slice(0, 3)"
-              :key="p.name"
+              :key="p.id"
               style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer"
             >
               <span style="font-size:15px">{{ p.emoji }}</span>
@@ -277,6 +306,9 @@ const projects = [
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Project name</label>
               <input
+                id="project-name"
+                v-model="newName"
+                name="project-name"
                 type="text"
                 placeholder="e.g. DevVault Backend API"
                 style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
@@ -285,6 +317,9 @@ const projects = [
             <div>
               <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Description <span style="text-transform:none;font-weight:400;letter-spacing:0">(optional)</span></label>
               <textarea
+                id="project-description"
+                v-model="newDesc"
+                name="project-description"
                 placeholder="What is this project about?"
                 rows="3"
                 style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:none"
@@ -292,14 +327,18 @@ const projects = [
             </div>
             <div style="display:flex;gap:10px;margin-top:4px">
               <button
+                id="cancel-project"
+                name="cancel-project"
                 style="flex:1;padding:9px;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px;cursor:pointer;color:var(--text)"
                 @click="appStore.closeNewProject()"
               >
                 Cancel
               </button>
               <button
+                id="create-project"
+                name="create-project"
                 style="flex:2;padding:9px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer"
-                @click="appStore.closeNewProject()"
+                @click="createProject"
               >
                 Create project
               </button>

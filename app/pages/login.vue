@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { useAppStore } from '~/stores/app'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ layout: 'plain' })
 
 const appStore = useAppStore()
+const authStore = useAuthStore()
+
+const email = ref('')
+const password = ref('')
+const error = ref('')
 
 onMounted(() => {
   appStore.initTheme()
 })
 
 function handleSignIn() {
-  navigateTo('/projects')
+  const res = authStore.login(email.value, password.value)
+  if (res.ok) navigateTo('/projects')
+  else error.value = res.error ?? 'Sign in failed.'
 }
 </script>
 
@@ -82,22 +90,38 @@ function handleSignIn() {
           <div>
             <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Email address</label>
             <input
+              id="email"
+              v-model="email"
+              name="email"
               type="email"
               placeholder="drew@acme.com"
               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
+              @keyup.enter="handleSignIn"
             >
           </div>
           <div>
             <label style="display:block;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Password</label>
             <input
+              id="password"
+              v-model="password"
+              name="password"
               type="password"
               placeholder="••••••••"
               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-family:inherit;font-size:14px;outline:none"
+              @keyup.enter="handleSignIn"
             >
           </div>
+          <p
+            v-if="error"
+            style="font-size:12px;color:#dc2626;margin-top:-4px"
+          >
+            {{ error }}
+          </p>
         </div>
 
         <button
+          id="sign-in"
+          name="sign-in"
           style="width:100%;padding:11px;background:var(--accent);color:var(--accent-fg);border:none;border-radius:var(--r-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;margin-bottom:16px"
           @click="handleSignIn"
         >
