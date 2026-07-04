@@ -282,7 +282,7 @@ function createAccount() {
             </div>
           </div>
           <NuxtLink
-            to="/projects"
+            to="/"
             style="display:block;padding:11px;background:var(--accent);color:var(--accent-fg);border-radius:var(--r-sm);font-size:14px;font-weight:600;text-decoration:none"
           >
             Go to your workspace →

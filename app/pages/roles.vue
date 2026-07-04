@@ -17,7 +17,6 @@ const { can } = usePermissions()
 const { currentUser } = storeToRefs(authStore)
 const { activeProject } = storeToRefs(projectsStore)
 const canManageRoles = computed(() => can('roles'))
-const variant = ref<'A' | 'B'>('A')
 
 onMounted(() => appStore.initTheme())
 
@@ -123,21 +122,6 @@ function subjectLabel(o: Override) {
       ><path d="m9 18 6-6-6-6" /></svg>
       <span style="font-size:13px;font-weight:600">Roles &amp; Permissions</span>
       <div style="flex:1" />
-      <!-- Variant switcher -->
-      <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">
-        <button
-          :style="`padding:5px 12px;border:none;background:${variant==='A' ? 'var(--accent)' : 'transparent'};color:${variant==='A' ? 'var(--accent-fg)' : 'var(--text-2)'};font-family:inherit;font-size:11px;font-weight:600;cursor:pointer`"
-          @click="variant = 'A'"
-        >
-          A · Matrix
-        </button>
-        <button
-          :style="`padding:5px 12px;border:none;background:${variant==='B' ? 'var(--accent)' : 'transparent'};color:${variant==='B' ? 'var(--accent-fg)' : 'var(--text-2)'};font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;border-left:1px solid var(--border)`"
-          @click="variant = 'B'"
-        >
-          B · Cards
-        </button>
-      </div>
       <button
         style="width:30px;height:30px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--text-2);font-size:12px;display:flex;align-items:center;justify-content:center"
         @click="appStore.toggleTheme()"
@@ -193,8 +177,8 @@ function subjectLabel(o: Override) {
         </div>
 
         <ClientOnly>
-          <!-- Variant A: Matrix -->
-          <template v-if="variant === 'A'">
+          <!-- Matrix -->
+          <div>
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px">
               <div style="overflow-x:auto">
                 <table style="width:100%;border-collapse:collapse">
@@ -326,76 +310,7 @@ function subjectLabel(o: Override) {
                 </div>
               </div>
             </div>
-          </template>
-
-          <!-- Variant B: Role Cards -->
-          <template v-else>
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
-              <div
-                v-for="role in roles"
-                :key="role.id"
-                style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;box-shadow:var(--shadow)"
-              >
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <div :style="`width:10px;height:10px;border-radius:50%;background:${role.color};flex-shrink:0`" />
-                    <div>
-                      <div style="font-size:15px;font-weight:700">
-                        {{ role.name }}
-                      </div>
-                      <div style="font-size:11px;color:var(--text-3)">
-                        {{ role.isSystem ? 'System default · Owner' : `Project role · ${memberCount(role.id)} members` }}
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    v-if="role.isSystem"
-                    style="font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--text-3)"
-                  >System</span>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px">
-                  <div
-                    v-for="col in permCols"
-                    :key="col.key"
-                    style="display:flex;align-items:center;gap:7px;font-size:13px"
-                    :style="`color:${role.perms[col.key] ? 'var(--text-2)' : 'var(--text-3)'}`"
-                  >
-                    <span :style="`font-weight:700;color:${role.perms[col.key] ? '#16a34a' : 'var(--text-3)'}`">{{ role.perms[col.key] ? '✓' : '—' }}</span>
-                    {{ col.label }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- New role card -->
-              <button
-                v-if="canManageRoles"
-                id="new-role-card"
-                name="new-role-card"
-                style="background:transparent;border:2px dashed var(--border);border-radius:var(--r);padding:22px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-family:inherit;color:var(--text-3);min-height:180px"
-                @click="openRole"
-              >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                ><line
-                  x1="12"
-                  y1="5"
-                  x2="12"
-                  y2="19"
-                /><line
-                  x1="5"
-                  y1="12"
-                  x2="19"
-                  y2="12"
-                /></svg>
-                <span style="font-size:13px;font-weight:600">New role</span>
-              </button>
-            </div>
-          </template>
+          </div>
         </ClientOnly>
       </div>
     </div>

@@ -17,7 +17,7 @@ onMounted(() => {
 
 function handleSignIn() {
   const res = authStore.login(email.value, password.value)
-  if (res.ok) navigateTo('/projects')
+  if (res.ok) navigateTo('/')
   else error.value = res.error ?? 'Sign in failed.'
 }
 </script>

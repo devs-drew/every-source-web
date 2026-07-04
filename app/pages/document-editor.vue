@@ -17,6 +17,11 @@ const { currentUser } = storeToRefs(authStore)
 const { activeProject } = storeToRefs(projectsStore)
 const { activeDoc } = storeToRefs(docsStore)
 const canEdit = computed(() => can('update', activeDoc.value?.id))
+const canDelete = computed(() => can('delete', activeDoc.value?.id))
+const titleModel = computed({
+  get: () => activeDoc.value?.title ?? '',
+  set: (val: string) => { if (activeDoc.value) docsStore.updateDoc(activeDoc.value.id, { title: val }) }
+})
 const activeCategoryName = computed(() =>
   docsStore.activeCategories.find(c => c.docs.some(d => d.id === activeDoc.value?.id))?.name ?? ''
 )
@@ -105,6 +110,13 @@ const isTable = computed(() => editorRef.value?.state.table ?? false)
 
 const saveOpen = ref(false)
 const saveConfirmed = ref(false)
+const deleteOpen = ref(false)
+
+function handleDeleteConfirm() {
+  if (activeDoc.value) docsStore.deleteDoc(activeDoc.value.id)
+  deleteOpen.value = false
+  navigateTo('/project-dashboard')
+}
 
 function handleSaveConfirm() {
   const html = editorRef.value?.editor?.getHTML()
@@ -164,7 +176,17 @@ function handleSetLink() {
         stroke-width="2"
         style="color:var(--text-3)"
       ><path d="m9 18 6-6-6-6" /></svg>
-      <span style="font-size:13px;font-weight:600">{{ activeDoc?.title }}</span>
+      <input
+        v-if="canEdit"
+        id="doc-title"
+        v-model="titleModel"
+        name="doc-title"
+        class="title-input"
+      >
+      <span
+        v-else
+        style="font-size:13px;font-weight:600"
+      >{{ activeDoc?.title }}</span>
       <div style="flex:1" />
 
       <!-- Status badge -->
@@ -242,6 +264,23 @@ function handleSetLink() {
           y2="10.49"
         /></svg>
         Share
+      </button>
+      <button
+        v-if="canDelete"
+        id="delete-doc"
+        name="delete-doc"
+        class="hdr-btn hdr-btn-danger"
+        @click="deleteOpen = true"
+      >
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        ><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+        Delete
       </button>
       <button
         class="theme-icon-btn"
@@ -1165,6 +1204,54 @@ function handleSetLink() {
         </div>
       </div>
     </Teleport>
+
+    <!-- Delete confirmation modal -->
+    <Teleport to="body">
+      <div
+        v-if="deleteOpen"
+        class="overlay"
+        @click="deleteOpen = false"
+      >
+        <div
+          class="modal-box"
+          style="width:380px"
+          @click.stop
+        >
+          <div class="modal-header">
+            <div>
+              <h2 style="font-size:15px;font-weight:700">
+                Delete document?
+              </h2>
+              <p style="font-size:12px;color:var(--text-3);margin-top:2px">
+                This permanently removes “{{ activeDoc?.title }}” and its version history.
+              </p>
+            </div>
+            <button
+              class="modal-close"
+              @click="deleteOpen = false"
+            >
+              ✕
+            </button>
+          </div>
+          <div style="padding:20px 22px;display:flex;justify-content:flex-end;gap:8px">
+            <button
+              class="hdr-btn"
+              @click="deleteOpen = false"
+            >
+              Cancel
+            </button>
+            <button
+              id="confirm-delete-doc"
+              name="confirm-delete-doc"
+              class="btn-danger-sm"
+              @click="handleDeleteConfirm"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1185,6 +1272,20 @@ function handleSetLink() {
   background: transparent; font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer; color: var(--text-2);
 }
 .hdr-btn:hover { border-color: var(--text-3); }
+.hdr-btn-danger { color: #dc2626; }
+.hdr-btn-danger:hover { border-color: #dc2626; background: rgba(220, 38, 38, .06); }
+.btn-danger-sm {
+  padding: 7px 14px; background: #dc2626; color: #fff; border: none;
+  border-radius: var(--r-sm); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.btn-danger-sm:hover { opacity: .9; }
+.title-input {
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+  background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
+  padding: 3px 6px; outline: none; max-width: 260px;
+}
+.title-input:hover { border-color: var(--border); }
+.title-input:focus { border-color: var(--accent); background: var(--bg); }
 .theme-icon-btn {
   width: 30px; height: 30px; border-radius: var(--r-sm); border: 1px solid var(--border);
   background: transparent; cursor: pointer; color: var(--text-2); font-size: 12px;

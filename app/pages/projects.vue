@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// TODO: remove — moved to index.vue (Projects is now the app home at /)
 import { useAppStore } from '~/stores/app'
 import { useAuthStore } from '~/stores/auth'
 import { useProjectsStore } from '~/stores/projects'
