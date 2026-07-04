@@ -2,7 +2,7 @@
 useHead({
   script: [
     {
-      innerHTML: `(function(){var t=localStorage.getItem('es-theme')||'dark';document.documentElement.setAttribute('data-theme',t)})()`,
+      innerHTML: `(function(){var t=localStorage.getItem('es-theme')||'light';document.documentElement.setAttribute('data-theme',t)})()`,
       tagPriority: 'critical'
     }
   ],
